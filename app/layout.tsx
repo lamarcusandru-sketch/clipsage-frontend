@@ -13,12 +13,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ClipSage",
+  title: {
+    default: "ClipSage",
+    template: "%s | ClipSage",
+  },
   description: "Find exact moments inside podcasts, interviews, and videos",
   icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/favicon.png",
+    icon: "/favicon.ico",       // ← MAIN (required for browsers)
+    shortcut: "/favicon.ico",
+    apple: "/favicon.png",      // ← optional (for iOS)
   },
 };
 
@@ -32,7 +35,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+      </body>
     </html>
   );
 }
