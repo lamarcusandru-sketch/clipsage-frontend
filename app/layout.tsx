@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,9 +20,9 @@ export const metadata: Metadata = {
   },
   description: "Find exact moments inside podcasts, interviews, and videos",
   icons: {
-    icon: "/favicon.ico",       // ← MAIN (required for browsers)
+    icon: "/favicon.ico",
     shortcut: "/favicon.ico",
-    apple: "/favicon.png",      // ← optional (for iOS)
+    apple: "/favicon.png",
   },
 };
 
@@ -37,6 +38,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
+        <Analytics />
       </body>
     </html>
   );
