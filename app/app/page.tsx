@@ -18,8 +18,6 @@ type ClipResult = {
   video_url?: string;
 };
 
-type AnyRow = Record<string, any>;
-
 const SUPABASE_URL = "https://sstcthkqleegmvessfxa.supabase.co";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
@@ -68,32 +66,6 @@ function getYoutubeUrl(clip: ClipResult) {
   }
 
   return "#";
-}
-
-function rowLooksPremium(row: AnyRow | null) {
-  if (!row) return false;
-
-  const status = String(
-    row.subscription_status ||
-      row.status ||
-      row.stripe_subscription_status ||
-      ""
-  ).toLowerCase();
-
-  const plan = String(row.plan || row.tier || row.account_type || "").toLowerCase();
-
-  return Boolean(
-    row.is_premium === true ||
-      row.premium === true ||
-      row.is_paid === true ||
-      row.has_premium === true ||
-      plan === "premium" ||
-      plan === "paid" ||
-      plan === "pro" ||
-      status === "active" ||
-      status === "trialing" ||
-      status === "paid"
-  );
 }
 
 function escapeRegExp(value: string) {
@@ -152,7 +124,6 @@ export default function ClipSageApp() {
   const [searchLimit, setSearchLimit] = useState<number | null>(10);
   const [plan, setPlan] = useState<string>("free");
   const [isPremium, setIsPremium] = useState(false);
-  const [premiumChecked, setPremiumChecked] = useState(false);
 
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
@@ -175,65 +146,6 @@ export default function ClipSageApp() {
     return () => window.clearInterval(timer);
   }, [loading, loadingMore]);
 
-  async function checkTableForPremium(table: string, column: string, value: string) {
-    const { data, error } = await supabase.from(table).select("*").eq(column, value).maybeSingle();
-    if (error || !data) return false;
-    return rowLooksPremium(data);
-  }
-
-  async function refreshPremiumStatus(currentSession?: Session | null) {
-    setPremiumChecked(false);
-
-    const workingSession = currentSession ?? session;
-
-    if (!workingSession?.user?.id) {
-      setIsPremium(false);
-      setPlan("free");
-      setPremiumChecked(true);
-      return false;
-    }
-
-    const userId = workingSession.user.id;
-    const userEmail = workingSession.user.email || "";
-
-    const metadataPremium =
-      rowLooksPremium(workingSession.user.user_metadata || {}) ||
-      rowLooksPremium(workingSession.user.app_metadata || {});
-
-    if (metadataPremium) {
-      setIsPremium(true);
-      setPlan("premium");
-      setPremiumChecked(true);
-      return true;
-    }
-
-    try {
-      const checks = [
-        checkTableForPremium("profiles", "id", userId),
-        checkTableForPremium("profiles", "user_id", userId),
-        userEmail ? checkTableForPremium("profiles", "email", userEmail) : Promise.resolve(false),
-        checkTableForPremium("customers", "user_id", userId),
-        userEmail ? checkTableForPremium("customers", "email", userEmail) : Promise.resolve(false),
-        checkTableForPremium("subscriptions", "user_id", userId),
-        userEmail ? checkTableForPremium("subscriptions", "email", userEmail) : Promise.resolve(false),
-      ];
-
-      const settled = await Promise.allSettled(checks);
-      const premium = settled.some((item) => item.status === "fulfilled" && item.value === true);
-
-      setIsPremium(premium);
-      setPlan(premium ? "premium" : "free");
-
-      return premium;
-    } catch {
-      setIsPremium(false);
-      setPlan("free");
-      return false;
-    } finally {
-      setPremiumChecked(true);
-    }
-  }
-
   useEffect(() => {
     let mounted = true;
 
@@ -243,31 +155,30 @@ export default function ClipSageApp() {
 
       const currentSession = data.session ?? null;
       setSession(currentSession);
-      await refreshPremiumStatus(currentSession);
+
+      if (currentSession?.user?.app_metadata?.plan === "premium") {
+        setIsPremium(true);
+        setPlan("premium");
+      }
     }
 
     bootAuth();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    } = supabase.auth.onAuthStateChange((_event, newSession) => {
       const currentSession = newSession ?? null;
       setSession(currentSession);
-      await refreshPremiumStatus(currentSession);
+
+      if (!currentSession) {
+        setIsPremium(false);
+        setPlan("free");
+      }
     });
-
-    const handleFocus = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session ?? null);
-      await refreshPremiumStatus(data.session ?? null);
-    };
-
-    window.addEventListener("focus", handleFocus);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
-      window.removeEventListener("focus", handleFocus);
     };
   }, []);
 
@@ -301,8 +212,6 @@ export default function ClipSageApp() {
         if (loginError) throw loginError;
 
         setSession(data.session ?? null);
-        await refreshPremiumStatus(data.session ?? null);
-
         setAuthMessage("Logged in.");
         setAuthOpen(false);
       }
@@ -322,14 +231,13 @@ export default function ClipSageApp() {
     setSession(null);
     setIsPremium(false);
     setPlan("free");
-    setPremiumChecked(true);
 
     setAuthLoading(false);
   }
 
   async function fetchClips(searchQuery: string, pageToFetch: number) {
     if (!SUPABASE_ANON_KEY) {
-      throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY. Check .env.local and Vercel.");
     }
 
     const {
@@ -338,43 +246,62 @@ export default function ClipSageApp() {
 
     const token = currentSession?.access_token || SUPABASE_ANON_KEY;
 
-    const response = await fetch(SEARCH_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        query: searchQuery,
-        q: searchQuery,
-        limit: RESULTS_PER_PAGE,
-        page: pageToFetch,
-        anon_id: getAnonId(),
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 25000);
 
-    const data = await response.json().catch(() => null);
+    try {
+      const response = await fetch(SEARCH_URL, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          q: searchQuery,
+          limit: RESULTS_PER_PAGE,
+          page: pageToFetch,
+          offset: (pageToFetch - 1) * RESULTS_PER_PAGE,
+          anon_id: getAnonId(),
+        }),
+      });
 
-    if (typeof data?.searches_left === "number") setSearchesLeft(data.searches_left);
-    if (typeof data?.search_limit === "number") setSearchLimit(data.search_limit);
+      const data = await response.json().catch(() => null);
 
-    if (typeof data?.plan === "string") {
-      setPlan(data.plan);
-      setIsPremium(data.plan !== "free");
-    }
+      if (typeof data?.searches_left === "number") setSearchesLeft(data.searches_left);
+      if (typeof data?.search_limit === "number") setSearchLimit(data.search_limit);
 
-    if (!response.ok) {
-      if (data?.error === "limit_reached") {
-        setSearchesLeft(0);
-        throw new Error(data?.message || "You’ve reached your 10 free searches for today.");
+      if (typeof data?.plan === "string") {
+        setPlan(data.plan);
+        setIsPremium(data.plan !== "free");
       }
 
-      throw new Error(data?.message || data?.error || "Search failed.");
-    }
+      if (!response.ok) {
+        if (data?.error === "limit_reached") {
+          setSearchesLeft(0);
+          throw new Error(data?.message || "You’ve reached your 10 free searches for today.");
+        }
 
-    const clips = data?.results || data?.clips || data?.data || data?.items || [];
-    return Array.isArray(clips) ? clips : [];
+        throw new Error(data?.message || data?.error || "Search failed.");
+      }
+
+      const clips = data?.results || data?.clips || data?.data || data?.items || [];
+      return Array.isArray(clips) ? clips : [];
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw new Error("Search timed out. Try again in a moment.");
+      }
+
+      if (err instanceof TypeError && err.message.includes("Failed to fetch")) {
+        throw new Error("Search connection failed. Check the Supabase Edge Function and CORS.");
+      }
+
+      throw err;
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   async function runSearch(searchValue: string) {
@@ -399,12 +326,6 @@ export default function ClipSageApp() {
       const clips = await fetchClips(finalQuery, 1);
       setResults(clips);
       setAnimationKey((current) => current + 1);
-
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
-
-      await refreshPremiumStatus(currentSession ?? null);
 
       if (clips.length === 0) setError("No clips found for this search.");
     } catch (err) {
@@ -434,12 +355,6 @@ export default function ClipSageApp() {
       setResults(clips);
       setPage(nextPage);
       setAnimationKey((current) => current + 1);
-
-      const {
-        data: { session: currentSession },
-      } = await supabase.auth.getSession();
-
-      await refreshPremiumStatus(currentSession ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong while loading more clips.");
     } finally {
@@ -453,23 +368,19 @@ export default function ClipSageApp() {
       setCheckoutLoading(true);
 
       if (!SUPABASE_ANON_KEY) {
-        throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+        throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY. Check .env.local and Vercel.");
       }
 
       const {
         data: { session: currentSession },
-        error: sessionError,
       } = await supabase.auth.getSession();
-
-      if (sessionError) throw new Error(sessionError.message || "Could not get login session.");
 
       if (!currentSession?.access_token) {
         setAuthOpen(true);
         throw new Error("Please log in before upgrading.");
       }
 
-      const premiumNow = await refreshPremiumStatus(currentSession);
-      const billingUrl = premiumNow ? PORTAL_URL : CHECKOUT_URL;
+      const billingUrl = isPremium ? PORTAL_URL : CHECKOUT_URL;
 
       const response = await fetch(billingUrl, {
         method: "POST",
@@ -519,21 +430,13 @@ export default function ClipSageApp() {
   const isFree = !isPremium && plan === "free";
   const displayedSearchesLeft = searchesLeft === null ? searchLimit ?? 10 : searchesLeft;
 
-  const billingButtonText = checkoutLoading
-    ? "Opening..."
-    : !premiumChecked
-      ? "Checking..."
-      : isPremium
-        ? "Manage Account"
-        : "Upgrade";
+  const billingButtonText = checkoutLoading ? "Opening..." : isPremium ? "Manage Account" : "Upgrade";
 
   const mainBillingButtonText = checkoutLoading
     ? "Opening..."
-    : !premiumChecked
-      ? "Checking Account..."
-      : isPremium
-        ? "Manage Account"
-        : "Unlock Smarter + Unlimited Search";
+    : isPremium
+      ? "Manage Account"
+      : "Unlock Smarter + Unlimited Search";
 
   return (
     <main className="min-h-screen bg-[#080b12] px-6 py-6 text-white">
@@ -621,18 +524,10 @@ export default function ClipSageApp() {
             </div>
           </a>
 
-          <nav className="relative flex items-center gap-4 text-sm text-gray-200">
-            <a href="/pricing" className="hover:text-white">
-              Pricing
-            </a>
-
-            <a href="/about" className="hover:text-white">
-              About
-            </a>
-
-            <a href="/landing" className="hover:text-white">
-              How It Works
-            </a>
+          <nav className="relative flex items-center gap-4 text-sm font-bold text-gray-200">
+            <a href="/pricing" className="hover:text-white">Pricing</a>
+            <a href="/about" className="hover:text-white">About</a>
+            <a href="/landing" className="hover:text-white">How It Works</a>
 
             <button
               type="button"
@@ -642,13 +537,13 @@ export default function ClipSageApp() {
               }}
               className="hover:text-white"
             >
-              {session?.user?.email ? "Account" : "Log In"}
+              Account
             </button>
 
             <button
               type="button"
               onClick={handleBilling}
-              disabled={checkoutLoading || !premiumChecked}
+              disabled={checkoutLoading}
               className="rounded-xl bg-yellow-400 px-5 py-3 font-bold text-black transition hover:scale-105 disabled:opacity-60"
             >
               {billingButtonText}
@@ -673,7 +568,7 @@ export default function ClipSageApp() {
                     <button
                       type="button"
                       onClick={handleBilling}
-                      disabled={checkoutLoading || !premiumChecked}
+                      disabled={checkoutLoading}
                       className="mb-3 w-full rounded-xl bg-yellow-400 px-4 py-3 font-bold text-black transition hover:scale-[1.02] disabled:opacity-60"
                     >
                       {mainBillingButtonText}
@@ -848,7 +743,7 @@ export default function ClipSageApp() {
               <button
                 type="button"
                 onClick={handleBilling}
-                disabled={checkoutLoading || !premiumChecked}
+                disabled={checkoutLoading}
                 className="rounded-2xl bg-yellow-400 px-7 py-4 font-black text-black shadow-[0_0_35px_rgba(250,204,21,0.45)] transition hover:scale-105 disabled:opacity-60"
               >
                 {mainBillingButtonText}
