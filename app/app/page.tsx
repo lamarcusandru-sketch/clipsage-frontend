@@ -225,6 +225,24 @@ function getClipTags(clip: ClipResult) {
   return tags;
 }
 
+
+function calculateFreeSearchesLeft(rawSearchesLeft?: number | null, rawSearchLimit?: number | null) {
+  if (typeof rawSearchesLeft !== "number") return null;
+
+  const backendLimit =
+    typeof rawSearchLimit === "number" && rawSearchLimit > 0
+      ? rawSearchLimit
+      : rawSearchesLeft > FREE_SEARCH_LIMIT
+        ? rawSearchesLeft
+        : FREE_SEARCH_LIMIT;
+
+  if (backendLimit > FREE_SEARCH_LIMIT) {
+    return Math.max(0, Math.min(rawSearchesLeft - (backendLimit - FREE_SEARCH_LIMIT), FREE_SEARCH_LIMIT));
+  }
+
+  return Math.max(0, Math.min(rawSearchesLeft, FREE_SEARCH_LIMIT));
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -335,16 +353,20 @@ export default function ClipSageApp() {
       setPlan(premiumActive ? "premium" : "free");
       setIsPremium(premiumActive);
 
-      if (typeof data?.search_limit === "number") {
-        setSearchLimit(premiumActive ? data.search_limit : FREE_SEARCH_LIMIT);
-      } else {
-        setSearchLimit(premiumActive ? null : FREE_SEARCH_LIMIT);
-      }
+      const backendSearchLimit = typeof data?.search_limit === "number" ? data.search_limit : FREE_SEARCH_LIMIT;
+
+      setSearchLimit(premiumActive ? data?.search_limit ?? null : FREE_SEARCH_LIMIT);
 
       if (typeof data?.searches_left === "number") {
-        setSearchesLeft(premiumActive ? data.searches_left : Math.max(0, Math.min(data.searches_left, FREE_SEARCH_LIMIT)));
+        setSearchesLeft(
+          premiumActive
+            ? data.searches_left
+            : calculateFreeSearchesLeft(data.searches_left, backendSearchLimit)
+        );
       } else if (premiumActive) {
         setSearchesLeft(null);
+      } else {
+        setSearchesLeft(FREE_SEARCH_LIMIT);
       }
     } catch (err) {
       console.error("Account status load failed:", err);
@@ -473,17 +495,27 @@ export default function ClipSageApp() {
 
       const data = await response.json().catch(() => null);
 
-      if (typeof data?.searches_left === "number") {
-        setSearchesLeft(Math.max(0, Math.min(data.searches_left, FREE_SEARCH_LIMIT)));
+      const responsePlan = typeof data?.plan === "string" ? data.plan.toLowerCase() : plan;
+      const responseIsPremium = responsePlan === "paid" || responsePlan === "premium";
+      const backendSearchLimit = typeof data?.search_limit === "number" ? data.search_limit : searchLimit ?? FREE_SEARCH_LIMIT;
+
+      if (typeof data?.plan === "string") {
+        setPlan(responseIsPremium ? "premium" : "free");
+        setIsPremium(responseIsPremium);
       }
 
       if (typeof data?.search_limit === "number") {
-        setSearchLimit(isPremium ? data.search_limit : FREE_SEARCH_LIMIT);
+        setSearchLimit(responseIsPremium ? data.search_limit : FREE_SEARCH_LIMIT);
       }
 
-      if (typeof data?.plan === "string") {
-        setPlan(data.plan);
-        setIsPremium(data.plan !== "free");
+      if (typeof data?.searches_left === "number") {
+        setSearchesLeft(
+          responseIsPremium
+            ? data.searches_left
+            : calculateFreeSearchesLeft(data.searches_left, backendSearchLimit)
+        );
+      } else if (!responseIsPremium && pageToFetch === 1) {
+        setSearchesLeft((current) => Math.max(0, (current ?? FREE_SEARCH_LIMIT) - 1));
       }
 
       if (!response.ok) {
@@ -520,6 +552,12 @@ export default function ClipSageApp() {
       return;
     }
 
+    if (isFree && displayedSearchesLeft <= 0) {
+      setSearchesLeft(0);
+      setError(`You’ve reached your ${FREE_SEARCH_LIMIT} free searches for today.`);
+      return;
+    }
+
     setQuery(finalQuery);
     setActiveQuery(finalQuery);
     setLoading(true);
@@ -545,6 +583,12 @@ export default function ClipSageApp() {
 
   async function showMoreClips() {
     if (!activeQuery || loadingMore) return;
+
+    if (isFree && displayedSearchesLeft <= 0) {
+      setSearchesLeft(0);
+      setError(`You’ve reached your ${FREE_SEARCH_LIMIT} free searches for today.`);
+      return;
+    }
 
     const nextPage = page + 1;
 
@@ -637,7 +681,7 @@ export default function ClipSageApp() {
 
   const isFree = !isPremium && plan === "free";
   const displayedSearchesLeft = isFree
-    ? Math.max(0, Math.min(searchesLeft === null ? searchLimit ?? FREE_SEARCH_LIMIT : searchesLeft, FREE_SEARCH_LIMIT))
+    ? Math.max(0, Math.min(searchesLeft === null ? FREE_SEARCH_LIMIT : searchesLeft, FREE_SEARCH_LIMIT))
     : searchesLeft === null ? searchLimit ?? FREE_SEARCH_LIMIT : searchesLeft;
 
   const billingButtonText = checkoutLoading ? "Opening..." : isPremium ? "Manage Account" : "Upgrade";
