@@ -30,21 +30,6 @@ const ACCOUNT_STATUS_URL = `${SUPABASE_URL}/functions/v1/account-status`;
 const RESULTS_PER_PAGE = 6;
 const FREE_SEARCH_LIMIT = 5;
 
-function normalizeFreeSearchesLeft(rawSearchesLeft?: number | null, rawSearchLimit?: number | null) {
-  if (typeof rawSearchesLeft !== "number") return FREE_SEARCH_LIMIT;
-
-  const backendLimit =
-    typeof rawSearchLimit === "number" && rawSearchLimit > 0
-      ? rawSearchLimit
-      : rawSearchesLeft > FREE_SEARCH_LIMIT
-        ? rawSearchesLeft
-        : FREE_SEARCH_LIMIT;
-
-  const backendUsed = Math.max(0, backendLimit - rawSearchesLeft);
-  return Math.max(0, Math.min(FREE_SEARCH_LIMIT, FREE_SEARCH_LIMIT - backendUsed));
-}
-
-
 const hotSearches = ["War", "Ceasefire", "Iran"];
 const tryOne = ["Trump", "Iran Ceasefire", "Israel AI", "Oil Prices", "AI Revolution"];
 
@@ -138,6 +123,7 @@ export default function ClipSageApp() {
 
   const [searchesLeft, setSearchesLeft] = useState<number | null>(null);
   const [searchLimit, setSearchLimit] = useState<number | null>(FREE_SEARCH_LIMIT);
+  const [clientFreeSearchesUsed, setClientFreeSearchesUsed] = useState(0);
   const [plan, setPlan] = useState<string>("free");
   const [isPremium, setIsPremium] = useState(false);
 
@@ -168,6 +154,7 @@ export default function ClipSageApp() {
       setPlan("free");
       setSearchLimit(FREE_SEARCH_LIMIT);
       setSearchesLeft(null);
+      setClientFreeSearchesUsed(0);
       return;
     }
 
@@ -193,15 +180,16 @@ export default function ClipSageApp() {
 
       setPlan(premiumActive ? "premium" : "free");
       setIsPremium(premiumActive);
+      if (premiumActive) setClientFreeSearchesUsed(0);
 
       if (typeof data?.search_limit === "number") {
-        setSearchLimit(FREE_SEARCH_LIMIT);
+        setSearchLimit(data.search_limit);
       } else {
-        setSearchLimit(premiumActive ? null : 10);
+        setSearchLimit(premiumActive ? null : FREE_SEARCH_LIMIT);
       }
 
       if (typeof data?.searches_left === "number") {
-        setSearchesLeft(normalizeFreeSearchesLeft(data.searches_left, typeof data?.search_limit === "number" ? data.search_limit : null));
+        setSearchesLeft(data.searches_left);
       } else if (premiumActive) {
         setSearchesLeft(null);
       }
@@ -293,6 +281,9 @@ export default function ClipSageApp() {
     setSession(null);
     setIsPremium(false);
     setPlan("free");
+    setSearchLimit(FREE_SEARCH_LIMIT);
+    setSearchesLeft(null);
+    setClientFreeSearchesUsed(0);
 
     setAuthLoading(false);
   }
@@ -332,8 +323,8 @@ export default function ClipSageApp() {
 
       const data = await response.json().catch(() => null);
 
-      if (typeof data?.searches_left === "number") setSearchesLeft(normalizeFreeSearchesLeft(data.searches_left, typeof data?.search_limit === "number" ? data.search_limit : null));
-      if (typeof data?.search_limit === "number") setSearchLimit(FREE_SEARCH_LIMIT);
+      if (typeof data?.searches_left === "number") setSearchesLeft(data.searches_left);
+      if (typeof data?.search_limit === "number") setSearchLimit(data.search_limit);
 
       if (typeof data?.plan === "string") {
         setPlan(data.plan);
@@ -374,6 +365,14 @@ export default function ClipSageApp() {
       return;
     }
 
+    const visibleSearchesLeft = getDisplayedFreeSearchesLeft(searchesLeft, searchLimit, clientFreeSearchesUsed);
+
+    if (isFree && visibleSearchesLeft <= 0) {
+      setError("You’ve used your 5 free searches today. Upgrade for smarter + unlimited search.");
+      setHasSearched(true);
+      return;
+    }
+
     setQuery(finalQuery);
     setActiveQuery(finalQuery);
     setLoading(true);
@@ -386,6 +385,9 @@ export default function ClipSageApp() {
 
     try {
       const clips = await fetchClips(finalQuery, 1);
+      if (isFree) {
+        setClientFreeSearchesUsed((current) => Math.min(FREE_SEARCH_LIMIT, current + 1));
+      }
       setResults(clips);
       setAnimationKey((current) => current + 1);
 
@@ -489,8 +491,29 @@ export default function ClipSageApp() {
     runSearch(term);
   }
 
+  function getDisplayedFreeSearchesLeft(
+    rawSearchesLeft: number | null,
+    rawSearchLimit: number | null,
+    localUsed: number
+  ) {
+    const safeLimit = typeof rawSearchLimit === "number" && rawSearchLimit > 0
+      ? rawSearchLimit
+      : FREE_SEARCH_LIMIT;
+
+    const safeRawLeft = typeof rawSearchesLeft === "number"
+      ? rawSearchesLeft
+      : safeLimit;
+
+    const backendOffset = Math.max(0, safeLimit - FREE_SEARCH_LIMIT);
+    const backendAdjustedLeft = Math.max(0, safeRawLeft - backendOffset);
+    const locallyAdjustedLeft = Math.max(0, FREE_SEARCH_LIMIT - localUsed);
+
+    return Math.max(0, Math.min(FREE_SEARCH_LIMIT, backendAdjustedLeft, locallyAdjustedLeft));
+  }
+
   const isFree = !isPremium && plan === "free";
-  const displayedSearchesLeft = isFree ? Math.max(0, Math.min(FREE_SEARCH_LIMIT, searchesLeft ?? searchLimit ?? FREE_SEARCH_LIMIT)) : null;
+  const displayedSearchesLeft = getDisplayedFreeSearchesLeft(searchesLeft, searchLimit, clientFreeSearchesUsed);
+  const freeSearchesDepleted = isFree && displayedSearchesLeft <= 0;
 
   const billingButtonText = checkoutLoading ? "Opening..." : isPremium ? "Manage Account" : "Upgrade";
 
@@ -775,7 +798,7 @@ export default function ClipSageApp() {
 
               <button
                 type="submit"
-                disabled={loading || loadingMore}
+                disabled={loading || loadingMore || freeSearchesDepleted}
                 className="rounded-2xl bg-blue-400 px-8 py-5 font-black text-black shadow-[0_0_30px_rgba(96,165,250,0.35)] transition hover:scale-105 disabled:opacity-60"
               >
                 {loading ? "Finding..." : "Find Clips"}
