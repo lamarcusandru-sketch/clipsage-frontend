@@ -31,7 +31,7 @@ const RESULTS_PER_PAGE = 6;
 const FREE_SEARCH_LIMIT = 5;
 
 const hotSearches = ["War", "Ceasefire", "Iran"];
-const tryOne = ["Trump", "Iran Ceasefire", "Israel AI", "Oil Prices", "AI Revolution"];
+const tryOne = ["Trump 60 Minutes", "Iran Ceasefire", "AI", "Oil Prices", "Candace Owens"];
 
 const loadingMessages = [
   "Searching through the transcript vault...",
