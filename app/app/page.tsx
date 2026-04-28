@@ -759,6 +759,10 @@ export default function ClipSageApp() {
               Pricing
             </a>
 
+            <a href="/landing" className="hover:text-white">
+              How It Works
+            </a>
+
             <button
               type="button"
               onClick={() => {
