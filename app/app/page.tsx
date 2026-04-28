@@ -5,8 +5,6 @@ import Link from "next/link";
 export default function AppPage() {
   return (
     <main className="min-h-screen bg-[#020817] text-white">
-
-      {/* ================= HEADER ================= */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="ClipSage" className="w-8 h-8" />
@@ -41,13 +39,8 @@ export default function AppPage() {
         </nav>
       </header>
 
-      {/* ================= HERO ================= */}
       <section className="text-center py-16 px-4">
-        <img
-          src="/logo.png"
-          alt="ClipSage"
-          className="mx-auto mb-6 w-20"
-        />
+        <img src="/logo.png" alt="ClipSage" className="mx-auto mb-6 w-20" />
 
         <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-6">
           Find the exact moment that matters.
@@ -59,7 +52,6 @@ export default function AppPage() {
         </p>
       </section>
 
-      {/* ================= HOT SEARCHES ================= */}
       <section className="max-w-5xl mx-auto px-4 mb-12">
         <p className="text-xs text-white/50 tracking-widest mb-4">
           FEATURED HOT SEARCHES
@@ -78,57 +70,6 @@ export default function AppPage() {
           ))}
         </div>
       </section>
-
-      {/* ================= SEARCH BOX ================= */}
-      <section className="max-w-5xl mx-auto px-4 mb-20">
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-
-          <div className="flex gap-4">
-            <input
-              placeholder="Try: Ceasefire"
-              className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 outline-none"
-            />
-            <button className="bg-blue-500 px-6 rounded-xl font-semibold hover:bg-blue-400 transition">
-              Find Clips
-            </button>
-          </div>
-
-          <p className="text-sm text-white/70 mt-4">
-            <strong>Search for a moment, not a video.</strong> Try a name, topic, or exact quote.
-          </p>
-
-          <p className="mt-4 font-semibold">
-            10 free searches left
-          </p>
-
-          <p className="text-xs text-white/50">
-            Free plan: 10 searches/day. Unlock smarter results + unlimited search.
-          </p>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            {["Trump", "Iran Ceasefire", "Israel AI", "Oil Prices", "AI Revolution"].map((tag) => (
-              <button
-                key={tag}
-                className="bg-white/10 px-3 py-1 rounded-full text-sm hover:bg-white/20 transition"
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-6 text-right">
-            <button className="bg-yellow-400 text-black px-6 py-3 rounded-full font-semibold hover:bg-yellow-300 transition">
-              Unlock Smarter + Unlimited Search
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= FOOTER NOTE ================= */}
-      <div className="text-center text-white/40 text-sm pb-10">
-        Search a name, topic, or quote to find exact clips in seconds.
-      </div>
-
     </main>
   );
 }
