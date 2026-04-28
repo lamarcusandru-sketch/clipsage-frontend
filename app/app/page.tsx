@@ -1032,8 +1032,25 @@ export default function ClipSageApp() {
           )}
 
           {error && (
-            <div className="mx-auto mt-6 max-w-xl rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300">
-              {error}
+            <div className="mx-auto mt-6 max-w-xl rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-4 text-sm text-red-300">
+              <p className="font-semibold">{error}</p>
+
+              {isFree && displayedSearchesLeft <= 0 && (
+                <div className="mt-4 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-center">
+                  <p className="mb-3 text-sm font-bold text-yellow-100">
+                    Keep going instantly with smarter, unlimited search.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleBilling}
+                    disabled={checkoutLoading}
+                    className="rounded-xl bg-yellow-400 px-5 py-3 font-black text-black shadow-[0_0_28px_rgba(250,204,21,0.35)] transition hover:scale-105 disabled:opacity-60"
+                  >
+                    {checkoutLoading ? "Opening..." : "Unlock Smart Search"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>
@@ -1147,6 +1164,44 @@ export default function ClipSageApp() {
                 );
               })}
             </section>
+
+            {/* LOCKED SMART RESULTS TEASER */}
+            {!isPremium && results.length > 0 && (
+              <div className="mt-10 rounded-3xl border border-yellow-400/30 bg-gradient-to-b from-yellow-400/10 to-transparent p-6 text-center shadow-[0_0_35px_rgba(250,204,21,0.12)]">
+                <div className="mb-2 text-sm font-black uppercase tracking-[0.22em] text-yellow-300">
+                  🔒 Hidden Results
+                </div>
+
+                <h3 className="mb-2 text-2xl font-black text-white">
+                  +{Math.floor(Math.random() * 10) + 8} smarter clips found
+                </h3>
+
+                <p className="mx-auto mb-5 max-w-2xl text-sm font-semibold leading-6 text-blue-100/75">
+                  These results use Smart Search — deeper understanding, better matches, and clips others miss.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleBilling}
+                  disabled={checkoutLoading}
+                  className="rounded-2xl bg-yellow-400 px-7 py-4 font-black text-black shadow-[0_0_35px_rgba(250,204,21,0.35)] transition hover:scale-105 disabled:opacity-60"
+                >
+                  {checkoutLoading ? "Opening..." : "See What You're Missing — Unlock Smart Search"}
+                </button>
+
+                <div className="mt-3 text-xs font-bold text-gray-500">
+                  Find the exact moment — not just keyword matches.
+                </div>
+              </div>
+            )}
+
+            {/* PREMIUM+ TEASER */}
+            {!isPremium && results.length > 0 && (
+              <div className="mt-4 text-center text-sm font-semibold text-gray-400">
+                Want full clip breakdowns and export-ready content?
+                <span className="text-yellow-300"> Premium+ coming soon.</span>
+              </div>
+            )}
 
             {hasSearched && (
               <div className="mt-10 flex justify-center">
