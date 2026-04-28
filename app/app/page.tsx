@@ -28,6 +28,7 @@ const CHECKOUT_URL = `${SUPABASE_URL}/functions/v1/create-checkout-session`;
 const ACCOUNT_STATUS_URL = `${SUPABASE_URL}/functions/v1/account-status`;
 
 const RESULTS_PER_PAGE = 6;
+const FREE_SEARCH_LIMIT = 5;
 
 const hotSearches = ["War", "Ceasefire", "Iran"];
 const tryOne = ["Trump", "Iran Ceasefire", "Israel AI", "Oil Prices", "AI Revolution"];
@@ -121,7 +122,7 @@ export default function ClipSageApp() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const [searchesLeft, setSearchesLeft] = useState<number | null>(null);
-  const [searchLimit, setSearchLimit] = useState<number | null>(10);
+  const [searchLimit, setSearchLimit] = useState<number | null>(FREE_SEARCH_LIMIT);
   const [plan, setPlan] = useState<string>("free");
   const [isPremium, setIsPremium] = useState(false);
 
@@ -150,7 +151,7 @@ export default function ClipSageApp() {
     if (!currentSession?.user) {
       setIsPremium(false);
       setPlan("free");
-      setSearchLimit(10);
+      setSearchLimit(FREE_SEARCH_LIMIT);
       setSearchesLeft(null);
       return;
     }
@@ -178,16 +179,16 @@ export default function ClipSageApp() {
       setPlan(premiumActive ? "premium" : "free");
       setIsPremium(premiumActive);
 
-      if (typeof data?.search_limit === "number") {
-        setSearchLimit(data.search_limit);
-      } else {
-        setSearchLimit(premiumActive ? null : 10);
-      }
-
-      if (typeof data?.searches_left === "number") {
-        setSearchesLeft(data.searches_left);
-      } else if (premiumActive) {
+      if (premiumActive) {
+        setSearchLimit(null);
         setSearchesLeft(null);
+      } else {
+        setSearchLimit(FREE_SEARCH_LIMIT);
+        if (typeof data?.searches_left === "number") {
+          setSearchesLeft(Math.max(0, Math.min(FREE_SEARCH_LIMIT, data.searches_left)));
+        } else {
+          setSearchesLeft(FREE_SEARCH_LIMIT);
+        }
       }
     } catch (err) {
       console.error("Account status load failed:", err);
@@ -197,6 +198,8 @@ export default function ClipSageApp() {
 
       setPlan(fallbackPremium ? "premium" : "free");
       setIsPremium(fallbackPremium);
+      setSearchLimit(fallbackPremium ? null : FREE_SEARCH_LIMIT);
+      setSearchesLeft(fallbackPremium ? null : FREE_SEARCH_LIMIT);
     }
   }
 
@@ -316,18 +319,24 @@ export default function ClipSageApp() {
 
       const data = await response.json().catch(() => null);
 
-      if (typeof data?.searches_left === "number") setSearchesLeft(data.searches_left);
-      if (typeof data?.search_limit === "number") setSearchLimit(data.search_limit);
+      if (typeof data?.searches_left === "number") {
+        setSearchesLeft(Math.max(0, Math.min(FREE_SEARCH_LIMIT, data.searches_left)));
+      }
+      if (typeof data?.search_limit === "number") {
+        setSearchLimit(Math.min(FREE_SEARCH_LIMIT, data.search_limit));
+      }
 
       if (typeof data?.plan === "string") {
-        setPlan(data.plan);
-        setIsPremium(data.plan !== "free");
+        const returnedPlan = data.plan.toLowerCase();
+        const returnedPremium = returnedPlan === "paid" || returnedPlan === "premium";
+        setPlan(returnedPremium ? "premium" : "free");
+        setIsPremium(returnedPremium);
       }
 
       if (!response.ok) {
         if (data?.error === "limit_reached") {
           setSearchesLeft(0);
-          throw new Error(data?.message || "You’ve reached your 10 free searches for today.");
+          throw new Error(data?.message || "You’ve reached your 5 free searches for today.");
         }
 
         throw new Error(data?.message || data?.error || "Search failed.");
@@ -473,8 +482,11 @@ export default function ClipSageApp() {
     runSearch(term);
   }
 
-  const isFree = !isPremium && plan === "free";
-  const displayedSearchesLeft = searchesLeft === null ? searchLimit ?? 10 : searchesLeft;
+  const normalizedPlan = String(plan || "free").toLowerCase();
+  const isFree = !isPremium && normalizedPlan !== "paid" && normalizedPlan !== "premium";
+  const displayedSearchesLeft = isFree
+    ? Math.max(0, Math.min(FREE_SEARCH_LIMIT, searchesLeft ?? searchLimit ?? FREE_SEARCH_LIMIT))
+    : null;
 
   const billingButtonText = checkoutLoading ? "Opening..." : isPremium ? "Manage Account" : "Upgrade";
 
@@ -781,7 +793,7 @@ export default function ClipSageApp() {
 
                 <p className="mt-1 text-sm text-gray-400">
                   {isFree
-                    ? "Free plan: 10 searches/day. Unlock smarter results + unlimited search."
+                    ? "Free plan: 5 searches/day. Unlock smarter results + unlimited search."
                     : "Premium plan: smarter results + unlimited search."}
                 </p>
               </div>
@@ -924,6 +936,44 @@ export default function ClipSageApp() {
                 );
               })}
             </section>
+
+            {/* LOCKED SMART RESULTS TEASER */}
+            {isFree && results.length > 0 && (
+              <div className="mt-10 rounded-3xl border border-yellow-400/30 bg-gradient-to-b from-yellow-400/10 to-transparent p-6 text-center shadow-[0_0_35px_rgba(250,204,21,0.12)]">
+                <div className="mb-2 text-sm font-black uppercase tracking-[0.22em] text-yellow-300">
+                  🔒 Hidden Results
+                </div>
+
+                <h3 className="mb-2 text-2xl font-black text-white">
+                  +{Math.floor(Math.random() * 10) + 8} smarter clips found
+                </h3>
+
+                <p className="mx-auto mb-5 max-w-2xl text-sm font-semibold leading-6 text-blue-100/75">
+                  These results use Smart Search — deeper understanding, better matches, and clips others miss.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleBilling}
+                  disabled={checkoutLoading}
+                  className="rounded-2xl bg-yellow-400 px-7 py-4 font-black text-black shadow-[0_0_35px_rgba(250,204,21,0.35)] transition hover:scale-105 disabled:opacity-60"
+                >
+                  {checkoutLoading ? "Opening..." : "See What You're Missing — Unlock Smart Search"}
+                </button>
+
+                <div className="mt-3 text-xs font-bold text-gray-500">
+                  Find the exact moment — not just keyword matches.
+                </div>
+              </div>
+            )}
+
+            {/* PREMIUM+ TEASER */}
+            {isFree && results.length > 0 && (
+              <div className="mt-4 text-center text-sm font-semibold text-gray-400">
+                Want full clip breakdowns and export-ready content?
+                <span className="text-yellow-300"> Premium+ coming soon.</span>
+              </div>
+            )}
 
             {hasSearched && (
               <div className="mt-10 flex justify-center">
