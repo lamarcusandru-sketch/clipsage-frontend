@@ -30,6 +30,7 @@ const CHECKOUT_URL = `${SUPABASE_URL}/functions/v1/create-checkout-session`;
 const ACCOUNT_STATUS_URL = `${SUPABASE_URL}/functions/v1/account-status`;
 
 const RESULTS_PER_PAGE = 6;
+const FREE_SEARCH_LIMIT = 5;
 
 const hotSearches = ["War", "Ceasefire", "Iran"];
 const tryOne = ["Trump", "Iran Ceasefire", "Israel AI", "Oil Prices", "AI Revolution"];
@@ -74,9 +75,127 @@ function normalizeTagValue(value?: string | null) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeChannelName(value?: string | null) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const LEFT_LEANING_CHANNELS = new Set([
+  "60 minutes",
+  "abc news",
+  "al jazeera english",
+  "associated press",
+  "bbc politics",
+  "bloomberg news",
+  "cbs news",
+  "cnn",
+  "contrapoints",
+  "crooked media",
+  "david pakman show",
+  "democracy now",
+  "don lemon",
+  "fd signifier",
+  "hasanabi",
+  "lastnightdestiny",
+  "left reckoning",
+  "lonerbox",
+  "msnbc",
+  "nbc news",
+  "pbs newshour",
+  "philosophy tube",
+  "pod save america",
+  "rational national",
+  "second thought",
+  "secular talk",
+  "some more news",
+  "the daily show",
+  "the ezra klein show",
+  "the humanist report",
+  "the young turks",
+  "trevor noah",
+  "zeteo",
+]);
+
+const RIGHT_LEANING_CHANNELS = new Set([
+  "a16z",
+  "all in podcast",
+  "ben shapiro",
+  "brittany venti",
+  "candace owens",
+  "nerdrotic",
+  "pbd podcast",
+  "rattlesnaketv",
+  "sneako",
+  "the amazing lucas",
+  "the free agent lifestyle",
+  "the saint",
+  "timcast irl",
+  "tucker carlson",
+  "valuetainment",
+  "whatever",
+]);
+
+const NEUTRAL_CHANNELS = new Set([
+  "bbc news",
+  "reuters",
+  "associated press",
+  "bloomberg news",
+  "intelligence squared",
+  "oxford union",
+  "mrbeast shorts",
+]);
+
+const COMMENTARY_CHANNELS = new Set([
+  "ben shapiro",
+  "candace owens",
+  "destiny",
+  "don lemon",
+  "hasanabi",
+  "lastnightdestiny",
+  "moistcr1tikal",
+  "nerdrotic",
+  "pbd podcast",
+  "rattlesnaketv",
+  "sneako",
+  "the amazing lucas",
+  "the free agent lifestyle",
+  "the humanist report",
+  "the majority report w sam seder",
+  "the saint",
+  "the young turks",
+  "timcast irl",
+  "valuetainment",
+  "whatever",
+]);
+
+function getFallbackLean(channelName?: string | null) {
+  const normalized = normalizeChannelName(channelName);
+
+  if (!normalized) return "";
+  if (LEFT_LEANING_CHANNELS.has(normalized)) return "left";
+  if (RIGHT_LEANING_CHANNELS.has(normalized)) return "right";
+  if (NEUTRAL_CHANNELS.has(normalized)) return "neutral";
+
+  return "";
+}
+
+function getFallbackContentType(channelName?: string | null) {
+  const normalized = normalizeChannelName(channelName);
+
+  if (!normalized) return "";
+  if (COMMENTARY_CHANNELS.has(normalized)) return "commentary";
+
+  return "";
+}
+
 function getClipTags(clip: ClipResult) {
-  const lean = normalizeTagValue(clip.political_lean);
-  const contentType = normalizeTagValue(clip.content_type);
+  const lean = normalizeTagValue(clip.political_lean) || getFallbackLean(clip.channel_name);
+  const contentType = normalizeTagValue(clip.content_type) || getFallbackContentType(clip.channel_name);
   const tags: Array<{ label: string; className: string }> = [];
 
   if (lean === "right") {
@@ -159,7 +278,7 @@ export default function ClipSageApp() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const [searchesLeft, setSearchesLeft] = useState<number | null>(null);
-  const [searchLimit, setSearchLimit] = useState<number | null>(10);
+  const [searchLimit, setSearchLimit] = useState<number | null>(FREE_SEARCH_LIMIT);
   const [plan, setPlan] = useState<string>("free");
   const [isPremium, setIsPremium] = useState(false);
 
@@ -188,7 +307,7 @@ export default function ClipSageApp() {
     if (!currentSession?.user) {
       setIsPremium(false);
       setPlan("free");
-      setSearchLimit(10);
+      setSearchLimit(FREE_SEARCH_LIMIT);
       setSearchesLeft(null);
       return;
     }
@@ -217,13 +336,13 @@ export default function ClipSageApp() {
       setIsPremium(premiumActive);
 
       if (typeof data?.search_limit === "number") {
-        setSearchLimit(data.search_limit);
+        setSearchLimit(premiumActive ? data.search_limit : FREE_SEARCH_LIMIT);
       } else {
-        setSearchLimit(premiumActive ? null : 10);
+        setSearchLimit(premiumActive ? null : FREE_SEARCH_LIMIT);
       }
 
       if (typeof data?.searches_left === "number") {
-        setSearchesLeft(data.searches_left);
+        setSearchesLeft(premiumActive ? data.searches_left : Math.max(0, Math.min(data.searches_left, FREE_SEARCH_LIMIT)));
       } else if (premiumActive) {
         setSearchesLeft(null);
       }
@@ -354,8 +473,13 @@ export default function ClipSageApp() {
 
       const data = await response.json().catch(() => null);
 
-      if (typeof data?.searches_left === "number") setSearchesLeft(data.searches_left);
-      if (typeof data?.search_limit === "number") setSearchLimit(data.search_limit);
+      if (typeof data?.searches_left === "number") {
+        setSearchesLeft(Math.max(0, Math.min(data.searches_left, FREE_SEARCH_LIMIT)));
+      }
+
+      if (typeof data?.search_limit === "number") {
+        setSearchLimit(isPremium ? data.search_limit : FREE_SEARCH_LIMIT);
+      }
 
       if (typeof data?.plan === "string") {
         setPlan(data.plan);
@@ -365,7 +489,7 @@ export default function ClipSageApp() {
       if (!response.ok) {
         if (data?.error === "limit_reached") {
           setSearchesLeft(0);
-          throw new Error(data?.message || "You’ve reached your 10 free searches for today.");
+          throw new Error(`You’ve reached your ${FREE_SEARCH_LIMIT} free searches for today.`);
         }
 
         throw new Error(data?.message || data?.error || "Search failed.");
@@ -512,7 +636,9 @@ export default function ClipSageApp() {
   }
 
   const isFree = !isPremium && plan === "free";
-  const displayedSearchesLeft = searchesLeft === null ? searchLimit ?? 10 : searchesLeft;
+  const displayedSearchesLeft = isFree
+    ? Math.max(0, Math.min(searchesLeft === null ? searchLimit ?? FREE_SEARCH_LIMIT : searchesLeft, FREE_SEARCH_LIMIT))
+    : searchesLeft === null ? searchLimit ?? FREE_SEARCH_LIMIT : searchesLeft;
 
   const billingButtonText = checkoutLoading ? "Opening..." : isPremium ? "Manage Account" : "Upgrade";
 
@@ -819,7 +945,7 @@ export default function ClipSageApp() {
 
                 <p className="mt-1 text-sm text-gray-400">
                   {isFree
-                    ? "Free plan: 10 searches/day. Unlock smarter results + unlimited search."
+                    ? "Free plan: 5 searches/day. Unlock smarter results + unlimited search."
                     : "Premium plan: smarter results + unlimited search."}
                 </p>
               </div>
