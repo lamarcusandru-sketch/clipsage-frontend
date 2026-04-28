@@ -1,488 +1,1004 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { createClient, Session, User } from "@supabase/supabase-js";
+import { useEffect, useState } from "react";
+import { createClient, Session } from "@supabase/supabase-js";
 
-type Clip = {
+type ClipResult = {
   id?: string;
   channel_name?: string;
   video_title?: string;
   clip_title?: string;
+  title?: string;
   quote_text?: string;
   transcript_chunk?: string;
   start_seconds?: number;
+  end_seconds?: number;
   thumbnail_url?: string;
   youtube_video_id?: string;
   video_url?: string;
 };
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+type AnyRow = Record<string, any>;
+
+const SUPABASE_URL = "https://sstcthkqleegmvessfxa.supabase.co";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-const supabase =
-  SUPABASE_URL && SUPABASE_ANON_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    : null;
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const hotSearches = [
-  { title: "War", sub: "See Clips In Seconds!" },
-  { title: "Ceasefire", sub: "Fast, broad, timely!" },
-  { title: "Iran", sub: "Instant Search!" },
+const SEARCH_URL = `${SUPABASE_URL}/functions/v1/search-clips`;
+const CHECKOUT_URL = `${SUPABASE_URL}/functions/v1/create-checkout-session`;
+const PORTAL_URL = `${SUPABASE_URL}/functions/v1/create-customer-portal-session`;
+
+const RESULTS_PER_PAGE = 6;
+
+const hotSearches = ["War", "Ceasefire", "Iran"];
+const tryOne = ["Trump", "Iran Ceasefire", "Israel AI", "Oil Prices", "AI Revolution"];
+
+const loadingMessages = [
+  "Searching through the transcript vault...",
+  "Matching your query to exact video moments...",
+  "Ranking the strongest clips now...",
 ];
 
-const suggestions = [
-  "Peace Talks",
-  "Israel",
-  "AI",
-  "Candace Owens",
-  "Destiny",
-  "Ceasefire",
-  "War",
-  "Islam",
-  "Oil Shortage",
-  "Asmongold",
-];
-
-const titleFont = {
-  fontFamily:
-    '"Arial Rounded MT Bold", "Cooper Black", "Trebuchet MS", Arial, sans-serif',
-};
+function formatTime(seconds?: number) {
+  if (!seconds && seconds !== 0) return "0:00";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
 
 function getAnonId() {
-  if (typeof window === "undefined") return "";
-  const existing = localStorage.getItem("clipsage_anon_id");
-  if (existing) return existing;
-  const created = crypto.randomUUID();
-  localStorage.setItem("clipsage_anon_id", created);
-  return created;
+  const existingId = localStorage.getItem("clipsage_anon_id");
+  if (existingId) return existingId;
+
+  const newId = crypto.randomUUID();
+  localStorage.setItem("clipsage_anon_id", newId);
+  return newId;
 }
 
-function secondsToTimestamp(total?: number) {
-  const safe = Math.max(0, Number(total || 0));
-  const h = Math.floor(safe / 3600);
-  const m = Math.floor((safe % 3600) / 60);
-  const s = Math.floor(safe % 60);
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-function makeYouTubeUrl(clip: Clip) {
-  const start = Math.max(0, Number(clip.start_seconds || 0));
+function getYoutubeUrl(clip: ClipResult) {
+  const start = clip.start_seconds || 0;
 
   if (clip.youtube_video_id) {
     return `https://www.youtube.com/watch?v=${clip.youtube_video_id}&t=${start}s`;
   }
 
   if (clip.video_url) {
-    const separator = clip.video_url.includes("?") ? "&" : "?";
-    return `${clip.video_url}${separator}t=${start}s`;
+    return `${clip.video_url}${clip.video_url.includes("?") ? "&" : "?"}t=${start}s`;
   }
 
   return "#";
 }
 
-export default function AppPage() {
-  const [query, setQuery] = useState("");
-  const [clips, setClips] = useState<Clip[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState("");
-  const [error, setError] = useState("");
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [accountOpen, setAccountOpen] = useState(false);
+function rowLooksPremium(row: AnyRow | null) {
+  if (!row) return false;
 
-  const initials = useMemo(() => {
-    const email = user?.email || "CS";
-    return email.slice(0, 2).toUpperCase();
-  }, [user]);
+  const status = String(
+    row.subscription_status ||
+      row.status ||
+      row.stripe_subscription_status ||
+      ""
+  ).toLowerCase();
+
+  const plan = String(row.plan || row.tier || row.account_type || "").toLowerCase();
+
+  return Boolean(
+    row.is_premium === true ||
+      row.premium === true ||
+      row.is_paid === true ||
+      row.has_premium === true ||
+      plan === "premium" ||
+      plan === "paid" ||
+      plan === "pro" ||
+      status === "active" ||
+      status === "trialing" ||
+      status === "paid"
+  );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getHighlightTerms(query: string) {
+  return query
+    .trim()
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length > 1);
+}
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  const terms = getHighlightTerms(query);
+
+  if (!text || terms.length === 0) return <>{text}</>;
+
+  const regex = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "gi");
+  const parts = text.split(regex);
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        const isMatch = terms.some((term) => term.toLowerCase() === part.toLowerCase());
+
+        if (!isMatch) return <span key={index}>{part}</span>;
+
+        return (
+          <mark key={index} className="rounded-md bg-yellow-400 px-1 font-black text-black">
+            {part}
+          </mark>
+        );
+      })}
+    </>
+  );
+}
+
+export default function ClipSageApp() {
+  const [query, setQuery] = useState("");
+  const [activeQuery, setActiveQuery] = useState("");
+  const [results, setResults] = useState<ClipResult[]>([]);
+  const [page, setPage] = useState(1);
+
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+
+  const [error, setError] = useState("");
+  const [animationKey, setAnimationKey] = useState(0);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const [searchesLeft, setSearchesLeft] = useState<number | null>(null);
+  const [searchLimit, setSearchLimit] = useState<number | null>(10);
+  const [plan, setPlan] = useState<string>("free");
+  const [isPremium, setIsPremium] = useState(false);
+  const [premiumChecked, setPremiumChecked] = useState(false);
+
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!loading && !loadingMore) {
+      setLoadingMessageIndex(0);
+      return;
+    }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setUser(data.session?.user || null);
+    const timer = window.setInterval(() => {
+      setLoadingMessageIndex((current) => (current + 1) % loadingMessages.length);
+    }, 1600);
+
+    return () => window.clearInterval(timer);
+  }, [loading, loadingMore]);
+
+  async function checkTableForPremium(table: string, column: string, value: string) {
+    const { data, error } = await supabase.from(table).select("*").eq(column, value).maybeSingle();
+    if (error || !data) return false;
+    return rowLooksPremium(data);
+  }
+
+  async function refreshPremiumStatus(currentSession?: Session | null) {
+    setPremiumChecked(false);
+
+    const workingSession = currentSession ?? session;
+
+    if (!workingSession?.user?.id) {
+      setIsPremium(false);
+      setPlan("free");
+      setPremiumChecked(true);
+      return false;
+    }
+
+    const userId = workingSession.user.id;
+    const userEmail = workingSession.user.email || "";
+
+    const metadataPremium =
+      rowLooksPremium(workingSession.user.user_metadata || {}) ||
+      rowLooksPremium(workingSession.user.app_metadata || {});
+
+    if (metadataPremium) {
+      setIsPremium(true);
+      setPlan("premium");
+      setPremiumChecked(true);
+      return true;
+    }
+
+    try {
+      const checks = [
+        checkTableForPremium("profiles", "id", userId),
+        checkTableForPremium("profiles", "user_id", userId),
+        userEmail ? checkTableForPremium("profiles", "email", userEmail) : Promise.resolve(false),
+        checkTableForPremium("customers", "user_id", userId),
+        userEmail ? checkTableForPremium("customers", "email", userEmail) : Promise.resolve(false),
+        checkTableForPremium("subscriptions", "user_id", userId),
+        userEmail ? checkTableForPremium("subscriptions", "email", userEmail) : Promise.resolve(false),
+      ];
+
+      const settled = await Promise.allSettled(checks);
+      const premium = settled.some((item) => item.status === "fulfilled" && item.value === true);
+
+      setIsPremium(premium);
+      setPlan(premium ? "premium" : "free");
+
+      return premium;
+    } catch {
+      setIsPremium(false);
+      setPlan("free");
+      return false;
+    } finally {
+      setPremiumChecked(true);
+    }
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function bootAuth() {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      const currentSession = data.session ?? null;
+      setSession(currentSession);
+      await refreshPremiumStatus(currentSession);
+    }
+
+    bootAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      const currentSession = newSession ?? null;
+      setSession(currentSession);
+      await refreshPremiumStatus(currentSession);
     });
 
-    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user || null);
-    });
+    const handleFocus = async () => {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session ?? null);
+      await refreshPremiumStatus(data.session ?? null);
+    };
+
+    window.addEventListener("focus", handleFocus);
 
     return () => {
-      data.subscription.unsubscribe();
+      mounted = false;
+      subscription.unsubscribe();
+      window.removeEventListener("focus", handleFocus);
     };
   }, []);
 
-  useEffect(() => {
-    if (!loading) return;
+  async function handleAuthSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
 
-    const messages = [
-      "Searching the transcript vault...",
-      "Finding the sharpest matching moments...",
-      "Pulling clips from the long-video jungle...",
-    ];
+    setAuthLoading(true);
+    setAuthMessage("");
+    setError("");
 
-    let index = 0;
-    setLoadingMessage(messages[index]);
+    try {
+      if (!authEmail.trim() || !authPassword.trim()) {
+        throw new Error("Enter your email and password.");
+      }
 
-    const timer = setInterval(() => {
-      index = (index + 1) % messages.length;
-      setLoadingMessage(messages[index]);
-    }, 1600);
+      if (authMode === "signup") {
+        const { error: signupError } = await supabase.auth.signUp({
+          email: authEmail.trim(),
+          password: authPassword,
+        });
 
-    return () => clearInterval(timer);
-  }, [loading]);
+        if (signupError) throw signupError;
 
-  async function runSearch(searchText?: string) {
-    const finalQuery = (searchText || query).trim();
+        setAuthMessage("Account created. Check your email if confirmation is required.");
+      } else {
+        const { data, error: loginError } = await supabase.auth.signInWithPassword({
+          email: authEmail.trim(),
+          password: authPassword,
+        });
+
+        if (loginError) throw loginError;
+
+        setSession(data.session ?? null);
+        await refreshPremiumStatus(data.session ?? null);
+
+        setAuthMessage("Logged in.");
+        setAuthOpen(false);
+      }
+    } catch (err) {
+      setAuthMessage(err instanceof Error ? err.message : "Authentication failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    setAuthLoading(true);
+    setAuthMessage("");
+
+    await supabase.auth.signOut();
+
+    setSession(null);
+    setIsPremium(false);
+    setPlan("free");
+    setPremiumChecked(true);
+
+    setAuthLoading(false);
+  }
+
+  async function fetchClips(searchQuery: string, pageToFetch: number) {
+    if (!SUPABASE_ANON_KEY) {
+      throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+    }
+
+    const {
+      data: { session: currentSession },
+    } = await supabase.auth.getSession();
+
+    const token = currentSession?.access_token || SUPABASE_ANON_KEY;
+
+    const response = await fetch(SEARCH_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        query: searchQuery,
+        q: searchQuery,
+        limit: RESULTS_PER_PAGE,
+        page: pageToFetch,
+        anon_id: getAnonId(),
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (typeof data?.searches_left === "number") setSearchesLeft(data.searches_left);
+    if (typeof data?.search_limit === "number") setSearchLimit(data.search_limit);
+
+    if (typeof data?.plan === "string") {
+      setPlan(data.plan);
+      setIsPremium(data.plan !== "free");
+    }
+
+    if (!response.ok) {
+      if (data?.error === "limit_reached") {
+        setSearchesLeft(0);
+        throw new Error(data?.message || "You’ve reached your 10 free searches for today.");
+      }
+
+      throw new Error(data?.message || data?.error || "Search failed.");
+    }
+
+    const clips = data?.results || data?.clips || data?.data || data?.items || [];
+    return Array.isArray(clips) ? clips : [];
+  }
+
+  async function runSearch(searchValue: string) {
+    const finalQuery = searchValue.trim();
 
     if (!finalQuery) {
-      setError("Type something first.");
+      setError("Type something to search first.");
       return;
     }
 
     setQuery(finalQuery);
-    setError("");
+    setActiveQuery(finalQuery);
     setLoading(true);
-    setClips([]);
+    setLoadingMore(false);
+    setError("");
+    setResults([]);
+    setPage(1);
+    setHasSearched(true);
+    setLoadingMessageIndex(0);
 
     try {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-        throw new Error("Missing Supabase environment variables.");
+      const clips = await fetchClips(finalQuery, 1);
+      setResults(clips);
+      setAnimationKey((current) => current + 1);
+
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+
+      await refreshPremiumStatus(currentSession ?? null);
+
+      if (clips.length === 0) setError("No clips found for this search.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong while searching.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function showMoreClips() {
+    if (!activeQuery || loadingMore) return;
+
+    const nextPage = page + 1;
+
+    setLoadingMore(true);
+    setError("");
+    setLoadingMessageIndex(0);
+
+    try {
+      const clips = await fetchClips(activeQuery, nextPage);
+
+      if (clips.length === 0) {
+        setError("No more clips found for this search.");
+        return;
       }
 
-      const token = session?.access_token;
-      const anonId = getAnonId();
+      setResults(clips);
+      setPage(nextPage);
+      setAnimationKey((current) => current + 1);
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/search-clips`, {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession();
+
+      await refreshPremiumStatus(currentSession ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong while loading more clips.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  async function handleBilling() {
+    try {
+      setError("");
+      setCheckoutLoading(true);
+
+      if (!SUPABASE_ANON_KEY) {
+        throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      }
+
+      const {
+        data: { session: currentSession },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) throw new Error(sessionError.message || "Could not get login session.");
+
+      if (!currentSession?.access_token) {
+        setAuthOpen(true);
+        throw new Error("Please log in before upgrading.");
+      }
+
+      const premiumNow = await refreshPremiumStatus(currentSession);
+      const billingUrl = premiumNow ? PORTAL_URL : CHECKOUT_URL;
+
+      const response = await fetch(billingUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           apikey: SUPABASE_ANON_KEY,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${currentSession.access_token}`,
         },
         body: JSON.stringify({
-          query: finalQuery,
-          q: finalQuery,
-          limit: 9,
-          offset: 0,
-          anon_id: anonId,
+          return_url: `${window.location.origin}/app`,
+          success_url: `${window.location.origin}/app?checkout=success`,
+          cancel_url: `${window.location.origin}/app?checkout=cancelled`,
         }),
       });
 
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data?.error || "Search failed.");
+        throw new Error(data?.error || data?.message || "Could not open billing.");
       }
 
-      const results = data?.clips || data?.results || data?.data || [];
-      setClips(Array.isArray(results) ? results : []);
+      const finalUrl =
+        data?.url ||
+        data?.checkout_url ||
+        data?.portal_url ||
+        data?.session?.url;
+
+      if (!finalUrl) throw new Error("Billing URL was not returned.");
+
+      window.location.href = finalUrl;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error ? err.message : "Something went wrong opening billing.");
     } finally {
-      setLoading(false);
+      setCheckoutLoading(false);
     }
   }
 
-  async function signOut() {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setAccountOpen(false);
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    runSearch(query);
   }
 
-  async function goToUpgrade() {
-    try {
-      if (!session?.access_token || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
-        window.location.href = "/pricing";
-        return;
-      }
-
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout-session`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({}),
-      });
-
-      const data = await response.json();
-
-      if (data?.url) {
-        window.location.href = data.url;
-        return;
-      }
-
-      window.location.href = "/pricing";
-    } catch {
-      window.location.href = "/pricing";
-    }
+  function handleSuggestedSearch(term: string) {
+    runSearch(term);
   }
+
+  const isFree = !isPremium && plan === "free";
+  const displayedSearchesLeft = searchesLeft === null ? searchLimit ?? 10 : searchesLeft;
+
+  const billingButtonText = checkoutLoading
+    ? "Opening..."
+    : !premiumChecked
+      ? "Checking..."
+      : isPremium
+        ? "Manage Account"
+        : "Upgrade";
+
+  const mainBillingButtonText = checkoutLoading
+    ? "Opening..."
+    : !premiumChecked
+      ? "Checking Account..."
+      : isPremium
+        ? "Manage Account"
+        : "Unlock Smarter + Unlimited Search";
 
   return (
-    <main className="min-h-screen bg-[#070b12] text-white">
-      <header className="mx-auto flex max-w-[1400px] items-center justify-between px-8 py-8">
-        <Link href="/app" className="flex items-center gap-3">
-          <img
-            src="/logo.png"
-            alt="ClipSage"
-            className="h-12 w-12 rounded-2xl object-contain drop-shadow-[0_0_18px_rgba(96,165,250,0.25)]"
-          />
+    <main className="min-h-screen bg-[#080b12] px-6 py-6 text-white">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@700;800&display=swap');
 
-          <div>
-            <div className="text-2xl font-black leading-none" style={titleFont}>
-              ClipSage
-            </div>
-            <div className="mt-1 text-sm text-slate-300">
-              Find exact moments inside podcasts, interviews, and videos
-            </div>
-          </div>
-        </Link>
+        .hero-title {
+          font-family: 'Fredoka', Arial, sans-serif;
+          letter-spacing: -0.045em;
+        }
 
-        <nav className="flex items-center gap-7 text-sm font-bold">
-          <Link href="/pricing" className="hover:text-yellow-300">
-            Pricing
-          </Link>
+        @keyframes clipCardPop {
+          0% { opacity: 0; transform: translateY(26px) scale(0.96); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
 
-          <Link href="/about" className="hover:text-yellow-300">
-            About
-          </Link>
+        @keyframes thinkingPulse {
+          0% { opacity: 0.55; transform: translateY(0); }
+          50% { opacity: 1; transform: translateY(-1px); }
+          100% { opacity: 0.55; transform: translateY(0); }
+        }
 
-          <Link href="/landing" className="hover:text-yellow-300">
-            How It Works
-          </Link>
+        .loading-message {
+          animation: thinkingPulse 1300ms ease-in-out infinite;
+        }
 
-          {user ? (
-            <div className="relative">
-              <button
-                onClick={() => setAccountOpen((v) => !v)}
-                className="flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.06] px-4 py-3 hover:bg-white/10"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-xs font-black">
-                  {initials}
-                </span>
-                <span>Account</span>
-                <span>▾</span>
-              </button>
+        .clip-card {
+          overflow: hidden;
+          animation: clipCardPop 420ms ease-out both;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025)),
+            #0b1018;
+          border: 1px solid rgba(63, 72, 88, 0.9);
+          box-shadow: 0 18px 40px rgba(0,0,0,0.32);
+          transition:
+            transform 220ms ease-out,
+            border-color 220ms ease-out,
+            box-shadow 220ms ease-out,
+            background-color 220ms ease-out;
+        }
 
-              {accountOpen && (
-                <div className="absolute right-0 z-50 mt-3 w-56 rounded-2xl border border-white/10 bg-[#111722] p-3 shadow-2xl">
-                  <div className="border-b border-white/10 px-3 pb-3 text-xs text-slate-300">
-                    {user.email}
-                  </div>
+        .clip-card:hover {
+          transform: translateY(-14px) scale(1.045) !important;
+          border-color: #facc15 !important;
+          box-shadow: 0 0 55px rgba(250, 204, 21, 0.34) !important;
+          background-color: #09090b !important;
+          z-index: 20;
+        }
 
-                  <Link
-                    href="/pricing"
-                    className="block rounded-xl px-3 py-3 text-sm hover:bg-white/10"
-                  >
-                    Manage / Pricing
-                  </Link>
+        .clip-card img {
+          transition: transform 220ms ease-out;
+        }
 
-                  <button
-                    onClick={signOut}
-                    className="block w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-white/10"
-                  >
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <Link href="/login" className="hover:text-yellow-300">
-              Account
-            </Link>
-          )}
+        .clip-card:hover img {
+          transform: scale(1.08);
+        }
 
-          <button
-            onClick={goToUpgrade}
-            className="rounded-2xl bg-yellow-400 px-6 py-3 font-black text-black shadow-[0_0_30px_rgba(250,204,21,0.25)] hover:bg-yellow-300"
-          >
-            Upgrade
-          </button>
-        </nav>
-      </header>
+        .clip-button {
+          transition:
+            transform 180ms ease-out,
+            border-color 180ms ease-out,
+            background-color 180ms ease-out;
+        }
 
-      <section className="mx-auto max-w-[1150px] px-6 pt-10">
-        <div className="text-center">
-          <img
-            src="/logo.png"
-            alt="ClipSage"
-            className="mx-auto h-32 w-32 object-contain drop-shadow-[0_0_35px_rgba(96,165,250,0.25)]"
-          />
+        .clip-button:hover {
+          transform: scale(1.05);
+          border-color: #facc15 !important;
+        }
+      `}</style>
 
-          <h1
-            className="mx-auto mt-8 max-w-5xl text-6xl font-black leading-[0.95] tracking-tight md:text-8xl"
-            style={titleFont}
-          >
-            Find the exact moment that matters.
-          </h1>
-
-          <p className="mx-auto mt-7 max-w-3xl text-xl leading-8 text-slate-300">
-            Search podcasts, interviews, and long-form videos to pull up the exact part you need in
-            seconds. Built for podcast lovers, creators, and researchers!
-          </p>
-        </div>
-
-        <div className="mx-auto mt-12 max-w-5xl">
-          <p className="mb-4 text-sm font-black uppercase tracking-[0.25em] text-slate-400">
-            Featured Hot Searches
-          </p>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {hotSearches.map((item) => (
-              <button
-                key={item.title}
-                onClick={() => runSearch(item.title)}
-                className="group rounded-2xl border border-white/10 bg-white/[0.06] p-6 text-left shadow-xl transition duration-200 hover:-translate-y-1 hover:border-blue-300/30 hover:bg-white/[0.09] hover:shadow-[0_0_35px_rgba(96,165,250,0.12)]"
-              >
-                <p className="text-xs font-black uppercase tracking-wide text-blue-200">
-                  Hot Search
-                </p>
-                <h3 className="mt-4 text-xl font-black" style={titleFont}>
-                  {item.title}
-                </h3>
-                <p className="mt-1 text-sm text-slate-300">{item.sub}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mx-auto mt-7 max-w-5xl rounded-[1.7rem] border border-white/10 bg-white/[0.06] p-6 shadow-2xl">
-          <div className="flex gap-4">
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") runSearch();
-              }}
-              placeholder="Try: Ceasefire"
-              className="min-h-[72px] flex-1 rounded-2xl border border-white/10 bg-[#090f19] px-7 text-xl text-white outline-none placeholder:text-slate-500"
+      <div className="mx-auto max-w-6xl">
+        <header className="relative mb-12 flex items-center justify-between">
+          <a href="/app" className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="ClipSage Logo"
+              className="h-11 w-auto rounded-full drop-shadow-[0_0_18px_rgba(96,165,250,0.35)]"
             />
 
+            <div className="leading-tight">
+              <div className="text-2xl font-black tracking-tight">ClipSage</div>
+              <div className="text-xs text-blue-100">
+                Find exact moments inside podcasts, interviews, and videos
+              </div>
+            </div>
+          </a>
+
+          <nav className="relative flex items-center gap-4 text-sm text-gray-200">
+            <a href="/pricing" className="hover:text-white">
+              Pricing
+            </a>
+
+            <a href="/about" className="hover:text-white">
+              About
+            </a>
+
+            <a href="/landing" className="hover:text-white">
+              How It Works
+            </a>
+
             <button
-              onClick={() => runSearch()}
-              disabled={loading}
-              className="rounded-2xl bg-blue-400 px-9 text-lg font-black text-black shadow-[0_0_30px_rgba(96,165,250,0.25)] hover:bg-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              onClick={() => {
+                setAuthOpen((current) => !current);
+                setAuthMessage("");
+              }}
+              className="hover:text-white"
             >
-              {loading ? "Finding..." : "Find Clips"}
+              {session?.user?.email ? "Account" : "Log In"}
             </button>
+
+            <button
+              type="button"
+              onClick={handleBilling}
+              disabled={checkoutLoading || !premiumChecked}
+              className="rounded-xl bg-yellow-400 px-5 py-3 font-bold text-black transition hover:scale-105 disabled:opacity-60"
+            >
+              {billingButtonText}
+            </button>
+
+            {authOpen && (
+              <div className="absolute right-0 top-14 z-50 w-80 rounded-2xl border border-zinc-800 bg-[#101520] p-5 text-left shadow-2xl">
+                {session?.user?.email ? (
+                  <>
+                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
+                      Signed In
+                    </p>
+
+                    <p className="mb-2 break-all text-sm text-blue-100">
+                      {session.user.email}
+                    </p>
+
+                    <p className="mb-4 text-sm font-bold text-yellow-300">
+                      {isPremium ? "Premium Active" : "Free Account"}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={handleBilling}
+                      disabled={checkoutLoading || !premiumChecked}
+                      className="mb-3 w-full rounded-xl bg-yellow-400 px-4 py-3 font-bold text-black transition hover:scale-[1.02] disabled:opacity-60"
+                    >
+                      {mainBillingButtonText}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      disabled={authLoading}
+                      className="w-full rounded-xl bg-white px-4 py-3 font-bold text-black transition hover:scale-[1.02] disabled:opacity-60"
+                    >
+                      {authLoading ? "Signing Out..." : "Sign Out"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-4 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode("login");
+                          setAuthMessage("");
+                        }}
+                        className={`flex-1 rounded-xl px-3 py-2 font-bold ${
+                          authMode === "login"
+                            ? "bg-blue-400 text-black"
+                            : "bg-white/[0.06] text-gray-200"
+                        }`}
+                      >
+                        Log In
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode("signup");
+                          setAuthMessage("");
+                        }}
+                        className={`flex-1 rounded-xl px-3 py-2 font-bold ${
+                          authMode === "signup"
+                            ? "bg-blue-400 text-black"
+                            : "bg-white/[0.06] text-gray-200"
+                        }`}
+                      >
+                        Sign Up
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleAuthSubmit} className="space-y-3">
+                      <input
+                        type="email"
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        placeholder="Email"
+                        className="w-full rounded-xl border border-zinc-700 bg-[#080b12] px-4 py-3 text-white outline-none focus:border-blue-400"
+                      />
+
+                      <input
+                        type="password"
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        placeholder="Password"
+                        className="w-full rounded-xl border border-zinc-700 bg-[#080b12] px-4 py-3 text-white outline-none focus:border-blue-400"
+                      />
+
+                      <button
+                        type="submit"
+                        disabled={authLoading}
+                        className="w-full rounded-xl bg-yellow-400 px-4 py-3 font-black text-black transition hover:scale-[1.02] disabled:opacity-60"
+                      >
+                        {authLoading
+                          ? "Working..."
+                          : authMode === "login"
+                            ? "Log In"
+                            : "Create Account"}
+                      </button>
+                    </form>
+
+                    {authMessage && (
+                      <p className="mt-3 rounded-xl border border-zinc-800 bg-white/[0.04] px-3 py-2 text-sm text-blue-100">
+                        {authMessage}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </nav>
+        </header>
+
+        <section className="mx-auto mb-16 max-w-5xl text-center">
+          <img
+            src="/logo.png"
+            alt="ClipSage Logo"
+            className="mx-auto mb-6 h-32 w-auto drop-shadow-[0_0_28px_rgba(96,165,250,0.35)]"
+          />
+
+          <h1 className="hero-title mb-6 text-5xl font-black leading-[0.92] md:text-7xl">
+            Find the exact moment that
+            <br />
+            matters.
+          </h1>
+
+          <p className="mx-auto mb-10 max-w-3xl text-lg leading-8 text-blue-100">
+            Search podcasts, interviews, and long-form videos to pull up the exact part you need in seconds.
+            Built for podcast lovers, creators, and researchers!
+          </p>
+
+          <div className="mx-auto mb-8 max-w-4xl text-left">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-gray-400">
+              Featured Hot Searches
+            </p>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              {hotSearches.map((term) => (
+                <button
+                  key={term}
+                  type="button"
+                  onClick={() => handleSuggestedSearch(term)}
+                  disabled={loading || loadingMore}
+                  className="rounded-2xl border border-zinc-800 bg-white/[0.04] p-5 text-left transition hover:-translate-y-1 hover:border-yellow-400 hover:bg-white/[0.07] disabled:opacity-50"
+                >
+                  <div className="mb-3 text-xs font-black uppercase tracking-wider text-blue-200">
+                    Hot Search
+                  </div>
+                  <div className="text-lg font-black">{term}</div>
+                  <div className="mt-1 text-sm text-blue-100">See clips in seconds!</div>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <p className="mt-6 text-base text-slate-300">
-            <span className="font-black text-white">Search for a moment, not a video.</span> Try a
-            name, topic, or exact quote.
-          </p>
+          <div className="mx-auto max-w-4xl rounded-3xl border border-zinc-800 bg-white/[0.05] p-5 shadow-2xl">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-3 md:flex-row">
+              <input
+                type="text"
+                value={query}
+                placeholder="Try: Ceasefire"
+                onChange={(e) => setQuery(e.target.value)}
+                className="flex-1 rounded-2xl border border-zinc-800 bg-[#0b0f18] px-6 py-5 text-lg text-white outline-none placeholder:text-gray-500 focus:border-blue-400"
+              />
 
-          <p className="mt-5 text-xl font-black" style={titleFont}>
-            10 free searches left
-          </p>
-
-          <p className="mt-1 text-sm text-slate-400">
-            Free plan: 10 searches/day. Unlock smarter results + unlimited search.
-          </p>
-
-          <div className="mt-8 flex flex-wrap gap-3">
-            {suggestions.map((item) => (
               <button
-                key={item}
-                onClick={() => runSearch(item)}
-                className="rounded-full border border-white/10 bg-white/10 px-5 py-2 text-sm font-black shadow-sm transition hover:-translate-y-0.5 hover:bg-white/20"
+                type="submit"
+                disabled={loading || loadingMore}
+                className="rounded-2xl bg-blue-400 px-8 py-5 font-black text-black shadow-[0_0_30px_rgba(96,165,250,0.35)] transition hover:scale-105 disabled:opacity-60"
               >
-                {item}
+                {loading ? "Finding..." : "Find Clips"}
               </button>
-            ))}
+            </form>
+
+            <div className="mt-5 grid gap-5 text-left md:grid-cols-[1fr_auto] md:items-center">
+              <div>
+                <p className="font-bold text-white">
+                  Search for a moment, not a video.{" "}
+                  <span className="font-normal text-gray-400">
+                    Try a name, topic, or exact quote.
+                  </span>
+                </p>
+
+                <p className="mt-4 text-lg font-black text-white">
+                  {isFree ? `${displayedSearchesLeft} free searches left` : "Unlimited search unlocked"}
+                </p>
+
+                <p className="mt-1 text-sm text-gray-400">
+                  {isFree
+                    ? "Free plan: 10 searches/day. Unlock smarter results + unlimited search."
+                    : "Premium plan: smarter results + unlimited search."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleBilling}
+                disabled={checkoutLoading || !premiumChecked}
+                className="rounded-2xl bg-yellow-400 px-7 py-4 font-black text-black shadow-[0_0_35px_rgba(250,204,21,0.45)] transition hover:scale-105 disabled:opacity-60"
+              >
+                {mainBillingButtonText}
+              </button>
+            </div>
+
+            <div className="mt-6 text-left">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.25em] text-gray-500">
+                Try One
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {tryOne.map((term) => (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => handleSuggestedSearch(term)}
+                    disabled={loading || loadingMore}
+                    className="rounded-full border border-zinc-700 bg-white/[0.08] px-4 py-2 text-sm font-bold text-gray-200 transition hover:scale-105 hover:border-yellow-400 hover:text-white disabled:opacity-50"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-8 flex justify-end">
-            <button
-              onClick={goToUpgrade}
-              className="rounded-2xl bg-yellow-400 px-9 py-4 text-base font-black text-black shadow-[0_0_35px_rgba(250,204,21,0.35)] transition hover:-translate-y-1 hover:bg-yellow-300"
-            >
-              Unlock Smarter + Unlimited Search
-            </button>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-10 max-w-[1150px] pb-20">
-          <p className="mb-5 text-lg font-black text-white">
-            Search a name, topic, or quote to find exact clips in seconds.
-          </p>
-
-          {loading && (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 text-slate-300">
-              {loadingMessage}
+          {(loading || loadingMore) && (
+            <div className="loading-message mx-auto mt-6 max-w-xl rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-4 text-sm font-black text-yellow-200">
+              {loadingMessages[loadingMessageIndex]}
             </div>
           )}
 
           {error && (
-            <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-6 text-red-200">
+            <div className="mx-auto mt-6 max-w-xl rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300">
               {error}
             </div>
           )}
+        </section>
 
-          {!loading && !error && clips.length === 0 && (
-            <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6 text-slate-300">
+        {!hasSearched && !loading && (
+          <section className="mb-10">
+            <p className="mb-4 font-bold text-blue-100">
+              Search a name, topic, or quote to find exact clips in seconds.
+            </p>
+
+            <div className="rounded-2xl border border-zinc-800 bg-white/[0.04] px-6 py-7 text-blue-100">
               Search a name, topic, or exact quote to start finding clips.
             </div>
-          )}
+          </section>
+        )}
 
-          {clips.length > 0 && (
-            <div className="grid gap-5 md:grid-cols-3">
-              {clips.map((clip, index) => {
-                const title = clip.clip_title || clip.video_title || "ClipSage Result";
-                const quote = clip.quote_text || clip.transcript_chunk || "";
-                const href = makeYouTubeUrl(clip);
+        {loading && (
+          <section className="grid gap-7 md:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((item) => (
+              <div
+                key={item}
+                className="h-80 animate-pulse rounded-2xl border border-zinc-800 bg-white/[0.04]"
+              />
+            ))}
+          </section>
+        )}
+
+        {!loading && results.length > 0 && (
+          <>
+            <p className="mb-5 font-bold text-blue-100">
+              Showing {results.length} clips for "{activeQuery}"
+            </p>
+
+            <section key={animationKey} className="grid gap-7 md:grid-cols-3">
+              {results.map((clip, index) => {
+                const cardTitle =
+                  clip.clip_title ||
+                  clip.title ||
+                  clip.video_title ||
+                  "Untitled Clip";
+
+                const transcript =
+                  clip.quote_text ||
+                  clip.transcript_chunk ||
+                  "No transcript preview available.";
 
                 return (
-                  <a
-                    key={clip.id || `${title}-${index}`}
-                    href={href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-xl transition duration-200 hover:-translate-y-1 hover:border-yellow-300/30 hover:bg-white/[0.09] hover:shadow-[0_0_35px_rgba(250,204,21,0.12)]"
+                  <article
+                    key={`${clip.id || "clip"}-${clip.youtube_video_id || "video"}-${clip.start_seconds || 0}-${index}`}
+                    className="clip-card rounded-3xl"
+                    style={{ animationDelay: `${index * 70}ms` }}
                   >
-                    {clip.thumbnail_url && (
-                      <img
-                        src={clip.thumbnail_url}
-                        alt={title}
-                        className="h-44 w-full object-cover transition duration-300 group-hover:scale-105"
-                      />
-                    )}
+                    <div className="aspect-video overflow-hidden bg-zinc-900">
+                      {clip.thumbnail_url ? (
+                        <img
+                          src={clip.thumbnail_url}
+                          alt={cardTitle}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-zinc-600">
+                          No thumbnail
+                        </div>
+                      )}
+                    </div>
 
                     <div className="p-5">
-                      <div className="text-xs font-black uppercase tracking-wide text-blue-200">
-                        {clip.channel_name || "ClipSage"}
+                      <h2 className="mb-4 line-clamp-2 text-xl font-black leading-snug text-white">
+                        {cardTitle}
+                      </h2>
+
+                      <div className="mb-4 flex flex-wrap items-center gap-3">
+                        <span className="rounded-full border border-blue-300/20 bg-blue-400/15 px-3 py-2 text-xs font-black text-blue-100">
+                          {formatTime(clip.start_seconds)} - {formatTime(clip.end_seconds)}
+                        </span>
+
+                        <span className="line-clamp-1 text-sm font-bold text-gray-400">
+                          {clip.channel_name || "Unknown Channel"}
+                        </span>
                       </div>
 
-                      <h3 className="mt-2 line-clamp-2 text-lg font-black" style={titleFont}>
-                        {title}
-                      </h3>
-
-                      <p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-300">
-                        {quote}
+                      <p className="mb-5 line-clamp-6 text-[15px] font-semibold leading-7 text-blue-100/80">
+                        <HighlightedText text={transcript} query={activeQuery || query} />
                       </p>
 
-                      <div className="mt-4 flex items-center justify-between">
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black">
-                          {secondsToTimestamp(clip.start_seconds)}
-                        </span>
-
-                        <span className="text-sm font-black text-yellow-300">
-                          Watch Clip →
-                        </span>
-                      </div>
+                      <a
+                        href={getYoutubeUrl(clip)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="clip-button inline-block rounded-xl bg-blue-400 px-5 py-3 text-sm font-black text-black shadow-[0_0_24px_rgba(96,165,250,0.25)]"
+                      >
+                        Watch Clip
+                      </a>
                     </div>
-                  </a>
+                  </article>
                 );
               })}
-            </div>
-          )}
-        </div>
-      </section>
+            </section>
+
+            {hasSearched && (
+              <div className="mt-10 flex justify-center">
+                <button
+                  type="button"
+                  onClick={showMoreClips}
+                  disabled={loadingMore}
+                  className="rounded-xl bg-yellow-400 px-8 py-4 font-bold text-black transition hover:scale-105 disabled:opacity-60"
+                >
+                  {loadingMore ? "Loading New Clips..." : "Show More Clips"}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </main>
   );
 }
