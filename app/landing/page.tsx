@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 const examples = ["Ceasefire", "Trump", "Iran Ceasefire", "Israel AI", "Oil Prices"];
@@ -38,13 +40,15 @@ const steps = [
   "Click Watch Clip to jump to the moment",
 ];
 
+const assetVersion = "2026-04-27-landing-fix";
+
 export default function LandingPage() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#070b12] text-white">
       <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
         <Link href="/app" className="flex items-center gap-3">
           <img
-            src="/logo.png"
+            src={`/logo.png?v=${assetVersion}`}
             alt="ClipSage"
             className="h-11 w-11 rounded-full"
           />
@@ -60,9 +64,11 @@ export default function LandingPage() {
           <Link href="/pricing" className="text-slate-200 hover:text-white">
             Pricing
           </Link>
+
           <Link href="/app" className="text-slate-200 hover:text-white">
             Search
           </Link>
+
           <Link
             href="/app"
             className="rounded-2xl bg-yellow-400 px-5 py-3 font-black text-black shadow-[0_0_30px_rgba(250,204,21,0.35)] transition hover:scale-105"
@@ -130,12 +136,13 @@ export default function LandingPage() {
 
           <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-2xl">
             <video
-              src="/instant-results.mp4"
+              src={`/instant-results.mp4?v=${assetVersion}`}
               autoPlay
               loop
               muted
               playsInline
               preload="metadata"
+              poster={`/instant.jpg?v=${assetVersion}`}
               className="h-auto w-full"
             />
           </div>
@@ -145,7 +152,7 @@ export default function LandingPage() {
       <section className="border-y border-white/10 bg-white/[0.03]">
         <div className="mx-auto grid max-w-6xl gap-6 px-6 py-14 md:grid-cols-3">
           <div className="rounded-3xl border border-white/10 bg-black/30 p-6">
-            <div className="text-4xl font-black text-yellow-300">60k+</div>
+            <div className="text-4xl font-black text-yellow-300">200k+</div>
             <p className="mt-2 text-sm text-slate-300">
               searchable clip moments
             </p>
@@ -210,12 +217,36 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="relative">
+          <div data-demo-wrap className="relative">
             <div className="absolute -inset-6 rounded-3xl bg-gradient-to-r from-blue-500/20 to-yellow-400/20 blur-3xl" />
+
             <img
-              src="/instant.jpg"
+              src={`/instant.jpg?v=${assetVersion}`}
               alt="ClipSage instant results demo"
-              className="relative w-full rounded-3xl border border-white/10 shadow-2xl"
+              loading="eager"
+              decoding="async"
+              className="relative block w-full rounded-3xl border border-white/10 bg-black shadow-2xl"
+              onError={(event) => {
+                const image = event.currentTarget;
+                const wrapper = image.closest("[data-demo-wrap]");
+                const fallbackVideo = wrapper?.querySelector("video");
+
+                image.style.display = "none";
+
+                if (fallbackVideo) {
+                  fallbackVideo.classList.remove("hidden");
+                }
+              }}
+            />
+
+            <video
+              src={`/instant-results.mp4?v=${assetVersion}`}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              className="relative hidden h-auto w-full rounded-3xl border border-white/10 bg-black shadow-2xl"
             />
           </div>
         </div>
