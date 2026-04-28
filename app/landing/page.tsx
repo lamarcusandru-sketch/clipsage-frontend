@@ -32,12 +32,22 @@ const useCases = [
   },
 ];
 
+const steps = [
+  "Type a topic, quote, name, or phrase",
+  "Get matching clip cards instantly",
+  "Click Watch Clip to jump to the moment",
+];
+
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#070b12] text-white">
+    <main className="min-h-screen overflow-hidden bg-[#070b12] text-white">
       <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
         <Link href="/app" className="flex items-center gap-3">
-          <img src="/logo.png" alt="ClipSage" className="h-11 w-11 rounded-full" />
+          <img
+            src="/logo.png"
+            alt="ClipSage"
+            className="h-11 w-11 rounded-full"
+          />
           <div>
             <div className="text-2xl font-black tracking-tight">ClipSage</div>
             <div className="text-xs text-slate-300">
@@ -86,6 +96,7 @@ export default function LandingPage() {
               <div className="flex-1 rounded-2xl border border-white/10 bg-[#080d16] px-6 py-5 text-left text-slate-300">
                 Try: Ceasefire
               </div>
+
               <Link
                 href="/app"
                 className="rounded-2xl bg-blue-500 px-8 py-5 text-center text-lg font-black text-black shadow-[0_0_30px_rgba(59,130,246,0.35)] transition hover:scale-[1.02] hover:bg-blue-400"
@@ -116,6 +127,7 @@ export default function LandingPage() {
 
         <div className="relative">
           <div className="absolute -inset-6 rounded-[2rem] bg-blue-500/10 blur-3xl" />
+
           <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-2xl">
             <video
               src="/instant-results.mp4"
@@ -134,15 +146,23 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-6xl gap-6 px-6 py-14 md:grid-cols-3">
           <div className="rounded-3xl border border-white/10 bg-black/30 p-6">
             <div className="text-4xl font-black text-yellow-300">60k+</div>
-            <p className="mt-2 text-sm text-slate-300">searchable clip moments</p>
+            <p className="mt-2 text-sm text-slate-300">
+              searchable clip moments
+            </p>
           </div>
+
           <div className="rounded-3xl border border-white/10 bg-black/30 p-6">
             <div className="text-4xl font-black text-yellow-300">Seconds</div>
-            <p className="mt-2 text-sm text-slate-300">to find buried moments</p>
+            <p className="mt-2 text-sm text-slate-300">
+              to find buried moments
+            </p>
           </div>
+
           <div className="rounded-3xl border border-white/10 bg-black/30 p-6">
             <div className="text-4xl font-black text-yellow-300">Free</div>
-            <p className="mt-2 text-sm text-slate-300">to start searching today</p>
+            <p className="mt-2 text-sm text-slate-300">
+              to start searching today
+            </p>
           </div>
         </div>
       </section>
@@ -175,11 +195,38 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="px-6 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-10 text-center">
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-blue-300">
+              See It In Action
+            </p>
+            <h2 className="mt-4 text-4xl font-black tracking-tight md:text-5xl">
+              Instant results. No guessing.
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-300">
+              Type a topic. Get real clips instantly. Click and jump straight to
+              the moment.
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute -inset-6 rounded-3xl bg-gradient-to-r from-blue-500/20 to-yellow-400/20 blur-3xl" />
+            <img
+              src="/instant.jpg"
+              alt="ClipSage instant results demo"
+              className="relative w-full rounded-3xl border border-white/10 shadow-2xl"
+            />
+          </div>
+        </div>
+      </section>
+
       <section className="bg-gradient-to-b from-[#070b12] to-[#101827] px-6 py-24">
         <div className="mx-auto max-w-6xl">
           <p className="text-center text-sm font-black uppercase tracking-[0.3em] text-blue-300">
             Built For
           </p>
+
           <h2 className="mx-auto mt-4 max-w-4xl text-center text-4xl font-black tracking-tight md:text-5xl">
             Anyone who wants the moment, not the whole video.
           </h2>
@@ -222,11 +269,7 @@ export default function LandingPage() {
             </div>
 
             <div className="space-y-4">
-              {[
-                "Type a topic, quote, name, or phrase",
-                "Get matching clip cards instantly",
-                "Click Watch Clip to jump to the moment",
-              ].map((step, index) => (
+              {steps.map((step, index) => (
                 <div
                   key={step}
                   className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/30 p-5"
@@ -247,9 +290,11 @@ export default function LandingPage() {
           <p className="text-sm font-black uppercase tracking-[0.3em] text-blue-300">
             Try It
           </p>
+
           <h2 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">
             You’re one search away from getting it.
           </h2>
+
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-300">
             Once you find a buried clip in seconds, scrubbing through long videos
             starts to feel ancient. Like dial-up internet with a YouTube thumbnail.
@@ -262,6 +307,7 @@ export default function LandingPage() {
             >
               Search Now — Free
             </Link>
+
             <Link
               href="/pricing"
               className="rounded-2xl border border-white/15 bg-white/10 px-8 py-4 text-lg font-black text-white transition hover:bg-white/20"
