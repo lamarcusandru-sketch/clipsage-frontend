@@ -863,8 +863,25 @@ export default function ClipSageApp() {
           )}
 
           {error && (
-            <div className="mx-auto mt-6 max-w-xl rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-3 text-sm text-red-300">
-              {error}
+            <div className="mx-auto mt-6 max-w-xl rounded-xl border border-red-900/60 bg-red-950/30 px-4 py-4 text-sm text-red-300">
+              <p className="font-semibold">{error}</p>
+
+              {isFree && freeSearchesDepleted && (
+                <div className="mt-4 rounded-xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-center">
+                  <p className="mb-3 text-sm font-bold text-yellow-100">
+                    Keep going instantly with smarter, unlimited search.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleBilling}
+                    disabled={checkoutLoading}
+                    className="rounded-xl bg-yellow-400 px-5 py-3 font-black text-black shadow-[0_0_28px_rgba(250,204,21,0.35)] transition hover:scale-105 disabled:opacity-60"
+                  >
+                    {checkoutLoading ? "Opening..." : "Unlock Smart Search"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>
