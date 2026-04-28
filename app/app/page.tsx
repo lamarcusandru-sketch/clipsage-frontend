@@ -25,7 +25,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const SEARCH_URL = `${SUPABASE_URL}/functions/v1/search-clips`;
 const CHECKOUT_URL = `${SUPABASE_URL}/functions/v1/create-checkout-session`;
-const PORTAL_URL = `${SUPABASE_URL}/functions/v1/create-customer-portal-session`;
+const ACCOUNT_STATUS_URL = `${SUPABASE_URL}/functions/v1/account-status`;
 
 const RESULTS_PER_PAGE = 6;
 
@@ -146,6 +146,60 @@ export default function ClipSageApp() {
     return () => window.clearInterval(timer);
   }, [loading, loadingMore]);
 
+  async function loadAccountStatus(currentSession: Session | null) {
+    if (!currentSession?.user) {
+      setIsPremium(false);
+      setPlan("free");
+      setSearchLimit(10);
+      setSearchesLeft(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(ACCOUNT_STATUS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${currentSession.access_token}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.message || data?.error || "Could not load account status.");
+      }
+
+      const nextPlan = String(data?.plan || "free").toLowerCase();
+      const premiumActive = nextPlan === "paid" || nextPlan === "premium";
+
+      setPlan(premiumActive ? "premium" : "free");
+      setIsPremium(premiumActive);
+
+      if (typeof data?.search_limit === "number") {
+        setSearchLimit(data.search_limit);
+      } else {
+        setSearchLimit(premiumActive ? null : 10);
+      }
+
+      if (typeof data?.searches_left === "number") {
+        setSearchesLeft(data.searches_left);
+      } else if (premiumActive) {
+        setSearchesLeft(null);
+      }
+    } catch (err) {
+      console.error("Account status load failed:", err);
+
+      const fallbackPlan = currentSession.user.app_metadata?.plan;
+      const fallbackPremium = fallbackPlan === "paid" || fallbackPlan === "premium";
+
+      setPlan(fallbackPremium ? "premium" : "free");
+      setIsPremium(fallbackPremium);
+    }
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -155,25 +209,17 @@ export default function ClipSageApp() {
 
       const currentSession = data.session ?? null;
       setSession(currentSession);
-
-      if (currentSession?.user?.app_metadata?.plan === "premium") {
-        setIsPremium(true);
-        setPlan("premium");
-      }
+      await loadAccountStatus(currentSession);
     }
 
     bootAuth();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       const currentSession = newSession ?? null;
       setSession(currentSession);
-
-      if (!currentSession) {
-        setIsPremium(false);
-        setPlan("free");
-      }
+      await loadAccountStatus(currentSession);
     });
 
     return () => {
@@ -380,7 +426,7 @@ export default function ClipSageApp() {
         throw new Error("Please log in before upgrading.");
       }
 
-      const billingUrl = isPremium ? PORTAL_URL : CHECKOUT_URL;
+      const billingUrl = CHECKOUT_URL;
 
       const response = await fetch(billingUrl, {
         method: "POST",
