@@ -30,6 +30,21 @@ const ACCOUNT_STATUS_URL = `${SUPABASE_URL}/functions/v1/account-status`;
 const RESULTS_PER_PAGE = 6;
 const FREE_SEARCH_LIMIT = 5;
 
+function normalizeFreeSearchesLeft(rawSearchesLeft?: number | null, rawSearchLimit?: number | null) {
+  if (typeof rawSearchesLeft !== "number") return FREE_SEARCH_LIMIT;
+
+  const backendLimit =
+    typeof rawSearchLimit === "number" && rawSearchLimit > 0
+      ? rawSearchLimit
+      : rawSearchesLeft > FREE_SEARCH_LIMIT
+        ? rawSearchesLeft
+        : FREE_SEARCH_LIMIT;
+
+  const backendUsed = Math.max(0, backendLimit - rawSearchesLeft);
+  return Math.max(0, Math.min(FREE_SEARCH_LIMIT, FREE_SEARCH_LIMIT - backendUsed));
+}
+
+
 const hotSearches = ["War", "Ceasefire", "Iran"];
 const tryOne = ["Trump", "Iran Ceasefire", "Israel AI", "Oil Prices", "AI Revolution"];
 
@@ -179,16 +194,16 @@ export default function ClipSageApp() {
       setPlan(premiumActive ? "premium" : "free");
       setIsPremium(premiumActive);
 
-      if (premiumActive) {
-        setSearchLimit(null);
-        setSearchesLeft(null);
-      } else {
+      if (typeof data?.search_limit === "number") {
         setSearchLimit(FREE_SEARCH_LIMIT);
-        if (typeof data?.searches_left === "number") {
-          setSearchesLeft(Math.max(0, Math.min(FREE_SEARCH_LIMIT, data.searches_left)));
-        } else {
-          setSearchesLeft(FREE_SEARCH_LIMIT);
-        }
+      } else {
+        setSearchLimit(premiumActive ? null : 10);
+      }
+
+      if (typeof data?.searches_left === "number") {
+        setSearchesLeft(normalizeFreeSearchesLeft(data.searches_left, typeof data?.search_limit === "number" ? data.search_limit : null));
+      } else if (premiumActive) {
+        setSearchesLeft(null);
       }
     } catch (err) {
       console.error("Account status load failed:", err);
@@ -198,8 +213,6 @@ export default function ClipSageApp() {
 
       setPlan(fallbackPremium ? "premium" : "free");
       setIsPremium(fallbackPremium);
-      setSearchLimit(fallbackPremium ? null : FREE_SEARCH_LIMIT);
-      setSearchesLeft(fallbackPremium ? null : FREE_SEARCH_LIMIT);
     }
   }
 
@@ -319,18 +332,12 @@ export default function ClipSageApp() {
 
       const data = await response.json().catch(() => null);
 
-      if (typeof data?.searches_left === "number") {
-        setSearchesLeft(Math.max(0, Math.min(FREE_SEARCH_LIMIT, data.searches_left)));
-      }
-      if (typeof data?.search_limit === "number") {
-        setSearchLimit(Math.min(FREE_SEARCH_LIMIT, data.search_limit));
-      }
+      if (typeof data?.searches_left === "number") setSearchesLeft(normalizeFreeSearchesLeft(data.searches_left, typeof data?.search_limit === "number" ? data.search_limit : null));
+      if (typeof data?.search_limit === "number") setSearchLimit(FREE_SEARCH_LIMIT);
 
       if (typeof data?.plan === "string") {
-        const returnedPlan = data.plan.toLowerCase();
-        const returnedPremium = returnedPlan === "paid" || returnedPlan === "premium";
-        setPlan(returnedPremium ? "premium" : "free");
-        setIsPremium(returnedPremium);
+        setPlan(data.plan);
+        setIsPremium(data.plan !== "free");
       }
 
       if (!response.ok) {
@@ -482,11 +489,8 @@ export default function ClipSageApp() {
     runSearch(term);
   }
 
-  const normalizedPlan = String(plan || "free").toLowerCase();
-  const isFree = !isPremium && normalizedPlan !== "paid" && normalizedPlan !== "premium";
-  const displayedSearchesLeft = isFree
-    ? Math.max(0, Math.min(FREE_SEARCH_LIMIT, searchesLeft ?? searchLimit ?? FREE_SEARCH_LIMIT))
-    : null;
+  const isFree = !isPremium && plan === "free";
+  const displayedSearchesLeft = isFree ? Math.max(0, Math.min(FREE_SEARCH_LIMIT, searchesLeft ?? searchLimit ?? FREE_SEARCH_LIMIT)) : null;
 
   const billingButtonText = checkoutLoading ? "Opening..." : isPremium ? "Manage Account" : "Upgrade";
 
@@ -938,7 +942,7 @@ export default function ClipSageApp() {
             </section>
 
             {/* LOCKED SMART RESULTS TEASER */}
-            {isFree && results.length > 0 && (
+            {!isPremium && results.length > 0 && (
               <div className="mt-10 rounded-3xl border border-yellow-400/30 bg-gradient-to-b from-yellow-400/10 to-transparent p-6 text-center shadow-[0_0_35px_rgba(250,204,21,0.12)]">
                 <div className="mb-2 text-sm font-black uppercase tracking-[0.22em] text-yellow-300">
                   🔒 Hidden Results
@@ -968,7 +972,7 @@ export default function ClipSageApp() {
             )}
 
             {/* PREMIUM+ TEASER */}
-            {isFree && results.length > 0 && (
+            {!isPremium && results.length > 0 && (
               <div className="mt-4 text-center text-sm font-semibold text-gray-400">
                 Want full clip breakdowns and export-ready content?
                 <span className="text-yellow-300"> Premium+ coming soon.</span>
