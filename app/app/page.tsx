@@ -334,7 +334,7 @@ export default function ClipSageApp() {
       if (!response.ok) {
         if (data?.error === "limit_reached") {
           setSearchesLeft(0);
-          throw new Error(data?.message || "You’ve reached your ${FREE_SEARCH_LIMIT} free searches for today.");
+          throw new Error(`You've reached your ${FREE_SEARCH_LIMIT} free searches for today.`);
         }
 
         throw new Error(data?.message || data?.error || "Search failed.");
