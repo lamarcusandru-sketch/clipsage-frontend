@@ -32,7 +32,7 @@ const ACCOUNT_STATUS_URL = `${SUPABASE_URL}/functions/v1/account-status`;
 const RESULTS_PER_PAGE = 6;
 const FREE_SEARCH_LIMIT = 5;
 
-const hotSearches = ["Trump 60 Minutes", "Strait of Hormuz", "Iran"];
+const hotSearches = ["Trump 60 Minutes Iran", "Strait of Hormuz", "Trade"];
 const tryOne = ["Candace Owens", "China", "AI", "Oil Prices", "World War 3"];
 
 const loadingMessages = [
