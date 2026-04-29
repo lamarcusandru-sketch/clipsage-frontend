@@ -24,7 +24,7 @@ export default function PricingPage() {
   const [password, setPassword] = useState("");
 
   const [premium, setPremium] = useState(false);
-  const [checkingPremium, setCheckingPremium] = useState(true);
+  const [checkingPremium, setCheckingPremium] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -40,16 +40,27 @@ export default function PricingPage() {
     let mounted = true;
 
     async function loadSession() {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
+      try {
+        const { data } = await supabase.auth.getSession();
 
-      const currentSession = data.session ?? null;
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+        if (!mounted) return;
 
-      if (currentSession?.user) {
-        await detectPremium(currentSession.user);
-      } else {
+        const currentSession = data.session ?? null;
+
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+
+        if (currentSession?.user) {
+          await detectPremium(currentSession.user);
+        } else {
+          setPremium(false);
+          setCheckingPremium(false);
+        }
+      } catch (error) {
+        console.error("Pricing session load failed:", error);
+
+        if (!mounted) return;
+
         setPremium(false);
         setCheckingPremium(false);
       }
@@ -95,25 +106,43 @@ export default function PricingPage() {
     };
   }, []);
 
+  async function withTimeout<T>(
+    promise: Promise<T>,
+    ms: number,
+    message: string
+  ): Promise<T> {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(message)), ms)
+      ),
+    ]);
+  }
+
   async function detectPremium(currentUser: User) {
     setCheckingPremium(true);
 
     try {
-      const userId = currentUser.id;
-      const userEmail = currentUser.email || "";
-
       const metadata = currentUser.user_metadata || {};
       const appMetadata = currentUser.app_metadata || {};
 
       const metadataPremium =
         metadata.is_premium === true ||
         metadata.premium === true ||
+        metadata.plan === "paid" ||
         metadata.plan === "premium" ||
+        metadata.plan === "premium_plus" ||
+        metadata.plan === "premium+" ||
         metadata.subscription_status === "active" ||
+        metadata.subscription_status === "trialing" ||
         appMetadata.is_premium === true ||
         appMetadata.premium === true ||
+        appMetadata.plan === "paid" ||
         appMetadata.plan === "premium" ||
-        appMetadata.subscription_status === "active";
+        appMetadata.plan === "premium_plus" ||
+        appMetadata.plan === "premium+" ||
+        appMetadata.subscription_status === "active" ||
+        appMetadata.subscription_status === "trialing";
 
       if (metadataPremium) {
         setPremium(true);
@@ -121,95 +150,28 @@ export default function PricingPage() {
         return;
       }
 
-      let foundPremium = false;
-
-      const profileQueries = [
-        supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      const { data, error } = await withTimeout(
         supabase
           .from("profiles")
-          .select("*")
-          .eq("user_id", userId)
+          .select("plan, subscription_status")
+          .eq("id", currentUser.id)
           .maybeSingle(),
-      ];
+        2500,
+        "Premium check timed out"
+      );
 
-      if (userEmail) {
-        profileQueries.push(
-          supabase
-            .from("profiles")
-            .select("*")
-            .eq("email", userEmail)
-            .maybeSingle()
-        );
+      if (error) {
+        console.error("Premium profile check failed:", error);
+        setPremium(false);
+        setCheckingPremium(false);
+        return;
       }
 
-      for (const query of profileQueries) {
-        const { data } = await query;
-        if (rowLooksPremium(data)) {
-          foundPremium = true;
-          break;
-        }
-      }
-
-      if (!foundPremium) {
-        const customerQueries = [
-          supabase
-            .from("customers")
-            .select("*")
-            .eq("user_id", userId)
-            .maybeSingle(),
-        ];
-
-        if (userEmail) {
-          customerQueries.push(
-            supabase
-              .from("customers")
-              .select("*")
-              .eq("email", userEmail)
-              .maybeSingle()
-          );
-        }
-
-        for (const query of customerQueries) {
-          const { data } = await query;
-          if (rowLooksPremium(data)) {
-            foundPremium = true;
-            break;
-          }
-        }
-      }
-
-      if (!foundPremium) {
-        const subscriptionQueries = [
-          supabase
-            .from("subscriptions")
-            .select("*")
-            .eq("user_id", userId)
-            .maybeSingle(),
-        ];
-
-        if (userEmail) {
-          subscriptionQueries.push(
-            supabase
-              .from("subscriptions")
-              .select("*")
-              .eq("email", userEmail)
-              .maybeSingle()
-          );
-        }
-
-        for (const query of subscriptionQueries) {
-          const { data } = await query;
-          if (rowLooksPremium(data)) {
-            foundPremium = true;
-            break;
-          }
-        }
-      }
-
-      setPremium(foundPremium);
-    } catch {
+      setPremium(rowLooksPremium(data));
+      setCheckingPremium(false);
+    } catch (error) {
+      console.error("Premium check failed:", error);
       setPremium(false);
-    } finally {
       setCheckingPremium(false);
     }
   }
@@ -227,7 +189,10 @@ export default function PricingPage() {
     return (
       row.is_premium === true ||
       row.premium === true ||
+      plan === "paid" ||
       plan === "premium" ||
+      plan === "premium_plus" ||
+      plan === "premium+" ||
       planType === "premium" ||
       status === "active" ||
       status === "trialing" ||
@@ -282,6 +247,7 @@ export default function PricingPage() {
     setSession(null);
     setUser(null);
     setPremium(false);
+    setCheckingPremium(false);
     setMessage("");
   }
 
@@ -600,15 +566,17 @@ export default function PricingPage() {
               <button
                 type="button"
                 onClick={handleBillingClick}
-                disabled={billingLoading || checkingPremium}
+                disabled={billingLoading}
                 className="mt-8 inline-flex w-full items-center justify-center rounded-2xl bg-yellow-400 px-5 py-4 text-sm font-black text-black shadow-[0_0_35px_rgba(250,204,21,0.25)] transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {billingLoading
-                  ? "Opening Stripe..."
-                  : checkingPremium
-                  ? "Checking Account..."
-                  : ctaText}
+                {billingLoading ? "Opening Stripe..." : ctaText}
               </button>
+
+              {checkingPremium && (
+                <p className="mt-3 text-center text-xs text-zinc-500">
+                  Checking your account status...
+                </p>
+              )}
 
               <p className="mt-4 text-center text-xs text-zinc-500">
                 {premium
