@@ -117,17 +117,17 @@ export default function PricingPage() {
   }, []);
 
   async function withTimeout<T>(
-    promise: Promise<T>,
-    ms: number,
-    message: string
-  ): Promise<T> {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error(message)), ms)
-      ),
-    ]);
-  }
+  promiseLike: PromiseLike<T>,
+  ms: number,
+  message: string
+): Promise<T> {
+  return await Promise.race([
+    Promise.resolve(promiseLike),
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(message)), ms)
+    ),
+  ]);
+}
 
   async function detectPremium(currentUser: User) {
     setCheckingPremium(true);
