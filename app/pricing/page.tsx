@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createClient, Session, User } from "@supabase/supabase-js";
+import { createClient, User } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://sstcthkqleegmvessfxa.supabase.co";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -15,7 +15,6 @@ const PORTAL_URL =
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export default function PricingPage() {
-  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
   const [authOpen, setAuthOpen] = useState(false);
@@ -41,26 +40,36 @@ export default function PricingPage() {
 
     async function loadSession() {
       try {
-        const { data } = await supabase.auth.getSession();
+        if (!SUPABASE_ANON_KEY) {
+          console.error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
+          if (!mounted) return;
+          setPremium(false);
+          setCheckingPremium(false);
+          return;
+        }
+
+        const sessionResult: any = await withTimeout(
+          supabase.auth.getSession(),
+          4000,
+          "Session check timed out"
+        );
 
         if (!mounted) return;
 
-        const currentSession = data.session ?? null;
+        const currentSession = sessionResult?.data?.session ?? null;
+        const currentUser = currentSession?.user ?? null;
 
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+        setUser(currentUser);
 
-        if (currentSession?.user) {
-          await detectPremium(currentSession.user);
+        if (currentUser) {
+          await detectPremium(currentUser);
         } else {
           setPremium(false);
           setCheckingPremium(false);
         }
       } catch (error) {
         console.error("Pricing session load failed:", error);
-
         if (!mounted) return;
-
         setPremium(false);
         setCheckingPremium(false);
       }
@@ -70,12 +79,13 @@ export default function PricingPage() {
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, nextSession) => {
-        setSession(nextSession);
-        setUser(nextSession?.user ?? null);
+        const nextUser = nextSession?.user ?? null;
 
-        if (nextSession?.user) {
+        setUser(nextUser);
+
+        if (nextUser) {
           setAuthOpen(false);
-          await detectPremium(nextSession.user);
+          await detectPremium(nextUser);
         } else {
           setPremium(false);
           setCheckingPremium(false);
@@ -150,7 +160,7 @@ export default function PricingPage() {
         return;
       }
 
-      const { data, error } = await withTimeout(
+      const result: any = await withTimeout(
         supabase
           .from("profiles")
           .select("plan, subscription_status")
@@ -159,6 +169,9 @@ export default function PricingPage() {
         2500,
         "Premium check timed out"
       );
+
+      const data = result?.data;
+      const error = result?.error;
 
       if (error) {
         console.error("Premium profile check failed:", error);
@@ -244,7 +257,6 @@ export default function PricingPage() {
 
   async function handleSignOut() {
     await supabase.auth.signOut();
-    setSession(null);
     setUser(null);
     setPremium(false);
     setCheckingPremium(false);
