@@ -1,200 +1,236 @@
+import Image from "next/image";
+import Link from "next/link";
+
 export default function BlogPost() {
   return (
-    <main style={{
-      maxWidth: "800px",
-      margin: "0 auto",
-      padding: "40px 20px",
-      fontFamily: "Arial, sans-serif",
-      lineHeight: "1.7",
-      color: "#111"
-    }}>
-      <h1 style={{ fontSize: "2.5rem", marginBottom: "20px" }}>
-        How to Find Specific Moments in YouTube Videos (Without Wasting Hours)
-      </h1>
+    <main style={styles.page}>
+      
+      {/* NAV */}
+      <header style={styles.header}>
+        <div style={styles.headerInner}>
+          <div style={styles.logoWrap}>
+            <Image src="/logo.png" alt="ClipSage Logo" width={140} height={40} />
+          </div>
 
-      <p>
-        For as long as online video has existed, one problem has quietly drained the time,
-        energy, and sanity of creators:
-      </p>
+          <nav style={styles.nav}>
+            <Link href="/" style={styles.navLink}>How It Works</Link>
+            <Link href="/" style={styles.navLink}>Features</Link>
+            <Link href="/pricing" style={styles.navLink}>Pricing</Link>
+            <Link href="#" style={styles.navLink}>Blog</Link>
+            <Link href="/" style={styles.button}>Try ClipSage</Link>
+          </nav>
+        </div>
+      </header>
 
-      <p><strong>Finding the exact moment you need inside a video.</strong></p>
+      {/* CONTENT */}
+      <article style={styles.container}>
+        
+        <div style={styles.badge}>BLOG</div>
 
-      <p>
-        It sounds simple. It never has been.
-      </p>
+        <h1 style={styles.title}>
+          How to Find Specific Moments in YouTube Videos (Without Wasting Hours)
+        </h1>
 
-      <h2>The Problem That Never Got Solved</h2>
+        <p style={styles.meta}>
+          By ClipSage • April 30, 2026 • 8 min read
+        </p>
 
-      <p>
-        Let’s be honest — this isn’t new.
-      </p>
+        <p style={styles.lead}>
+          For decades, finding specific moments inside video content has been a nightmare for creators.
+        </p>
 
-      <p>
-        This has been a problem for <strong>decades</strong>.
-      </p>
+        <p>
+          <strong>Finding the exact moment you need inside a video.</strong>
+        </p>
 
-      <ul>
-        <li>You scrub timelines blindly</li>
-        <li>You rely on rough timestamps</li>
-        <li>You rewatch entire sections</li>
-        <li>You hope someone clipped it already</li>
-      </ul>
+        <p>It sounds simple. It never has been.</p>
 
-      <p>
-        And as content got longer… the problem got worse.
-      </p>
+        {/* TOC */}
+        <div style={styles.toc}>
+          <h4 style={styles.tocTitle}>In this article</h4>
+          <ul style={styles.tocList}>
+            <li>The Problem That Never Got Solved</li>
+            <li>Why It’s Been So Hard</li>
+            <li>The Old Way (And Why It Fails)</li>
+            <li>The Shift: Searching Inside Video</li>
+            <li>Why This Matters</li>
+            <li>Try It Yourself</li>
+          </ul>
+        </div>
 
-      <p>
-        <strong>We solved streaming. We solved distribution. We never solved navigation inside video.</strong>
-      </p>
+        <h2>The Problem That Never Got Solved</h2>
+        <p>
+          This has been a problem for decades — from DVDs to YouTube to modern podcasts.
+        </p>
 
-      <h2>Why It’s Been So Hard</h2>
+        <ul>
+          <li>You scrub timelines blindly</li>
+          <li>You rely on vague timestamps</li>
+          <li>You rewatch entire sections</li>
+          <li>You hope someone already clipped it</li>
+        </ul>
 
-      <p>
-        Video isn’t like text.
-      </p>
+        <p>
+          <strong>We solved streaming. We solved distribution. We never solved navigation.</strong>
+        </p>
 
-      <p>
-        Google can scan a webpage instantly — but video is locked behind time.
-      </p>
+        <h2>Why It’s Been So Hard</h2>
+        <p>
+          Video is locked behind time. Unlike text, you can’t instantly scan it.
+        </p>
 
-      <p>
-        Even transcripts don’t fully solve it:
-      </p>
+        <ul>
+          <li>Transcripts are unreliable</li>
+          <li>They’re hard to search properly</li>
+          <li>They don’t map cleanly to moments</li>
+        </ul>
 
-      <ul>
-        <li>They’re often inaccurate</li>
-        <li>They’re hard to search</li>
-        <li>They don’t cleanly map to moments</li>
-      </ul>
+        <h2>The Old Way (And Why It Fails)</h2>
+        <ol>
+          <li>Watch everything</li>
+          <li>Scrub and guess</li>
+          <li>Clip manually</li>
+          <li>Repeat</li>
+        </ol>
 
-      <h2>The Old Way (And Why It Fails)</h2>
+        <p><strong>It doesn’t scale.</strong></p>
 
-      <ol>
-        <li>Watch everything</li>
-        <li>Scrub and guess</li>
-        <li>Clip manually</li>
-        <li>Repeat</li>
-      </ol>
+        <h2>The Shift: Searching Inside Video</h2>
+        <p>
+          Now you can treat video like something you search — not something you sit through.
+        </p>
 
-      <p>
-        It’s slow. It’s exhausting.
-      </p>
+        <p>
+          Type what you’re looking for and jump straight to the moment.
+        </p>
 
-      <p><strong>And it doesn’t scale.</strong></p>
+        <h2>Why This Matters</h2>
+        <ul>
+          <li>Post faster</li>
+          <li>Find better clips</li>
+          <li>Stay consistent</li>
+        </ul>
 
-      <h2>The Shift: Search Inside Video</h2>
+        <p><strong>Speed is leverage.</strong></p>
 
-      <p>
-        Now something has finally changed.
-      </p>
+        <h2>Try It Yourself</h2>
+        <p>
+          👉 <a href="https://www.clipsage.org" style={styles.link}>Try ClipSage</a>
+        </p>
 
-      <p>
-        Instead of watching through content, you can now <strong>search inside it</strong>.
-      </p>
+        <h2>Final Thought</h2>
+        <p>
+          This problem existed for decades. Now it’s solved.
+        </p>
 
-      <p>
-        Like Google — but for video.
-      </p>
-
-      <p>
-        Instead of guessing:
-      </p>
-
-      <ul>
-        <li>“ceasefire”</li>
-        <li>“funniest moment”</li>
-        <li>“he admits it”</li>
-      </ul>
-
-      <p>
-        You get exact moments instantly.
-      </p>
-
-      <h2>How It Works</h2>
-
-      <p>
-        Tools like ClipSage make video searchable.
-      </p>
-
-      <ul>
-        <li>Type what you’re looking for</li>
-        <li>Get matching clips</li>
-        <li>Jump straight to the moment</li>
-      </ul>
-
-      <p>
-        No scrubbing. No guessing.
-      </p>
-
-      <h2>Why This Actually Matters</h2>
-
-      <p>
-        This isn’t a small upgrade.
-      </p>
-
-      <ul>
-        <li>Post faster</li>
-        <li>Find better moments</li>
-        <li>Stay consistent</li>
-      </ul>
-
-      <p>
-        <strong>Speed is leverage for creators.</strong>
-      </p>
-
-      <h2>Real Use Cases</h2>
-
-      <ul>
-        <li>Video editors finding quotes instantly</li>
-        <li>Short-form creators pulling viral clips</li>
-        <li>Podcasters extracting highlights</li>
-        <li>Researchers locating discussions</li>
-      </ul>
-
-      <h2>The End of “I Know It’s In There Somewhere”</h2>
-
-      <p>
-        Every creator knows this feeling:
-      </p>
-
-      <p><em>“I KNOW they said it… I just can’t find it.”</em></p>
-
-      <p>
-        That problem has existed for years.
-      </p>
-
-      <p>
-        <strong>Now it doesn’t have to.</strong>
-      </p>
-
-      <h2>Try It Yourself</h2>
-
-      <p>
-        If you work with video, this is one of those things you need to experience.
-      </p>
-
-      <p>
-        👉 <a href="https://www.clipsage.org/" target="_blank">
-          Try ClipSage here
-        </a>
-      </p>
-
-      <h2>Final Thought</h2>
-
-      <p>
-        Creators have been adapting to broken workflows for decades.
-      </p>
-
-      <p>
-        Now there’s finally a better way.
-      </p>
-
-      <p>
-        And once you use it…
-      </p>
-
-      <p><strong>You won’t go back.</strong></p>
+      </article>
     </main>
   );
 }
+
+/* STYLES */
+
+const styles: any = {
+  page: {
+    background: "#f8fafc",
+    minHeight: "100vh",
+  },
+
+  header: {
+    background: "#ffffff",
+    borderBottom: "1px solid #e5e7eb",
+  },
+
+  headerInner: {
+    maxWidth: "1100px",
+    margin: "0 auto",
+    padding: "20px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  logoWrap: {
+    display: "flex",
+    alignItems: "center",
+  },
+
+  nav: {
+    display: "flex",
+    gap: "20px",
+    alignItems: "center",
+  },
+
+  navLink: {
+    textDecoration: "none",
+    color: "#374151",
+    fontSize: "14px",
+  },
+
+  button: {
+    background: "#111827",
+    color: "#fff",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    textDecoration: "none",
+    fontSize: "14px",
+  },
+
+  container: {
+    maxWidth: "800px",
+    margin: "40px auto",
+    padding: "0 20px",
+    background: "#ffffff",
+    borderRadius: "12px",
+    paddingBottom: "40px",
+  },
+
+  badge: {
+    display: "inline-block",
+    background: "#e0edff",
+    color: "#2563eb",
+    padding: "6px 10px",
+    borderRadius: "6px",
+    fontSize: "12px",
+    marginBottom: "20px",
+  },
+
+  title: {
+    fontSize: "2.2rem",
+    fontWeight: "700",
+    marginBottom: "10px",
+    color: "#111827",
+  },
+
+  meta: {
+    color: "#6b7280",
+    fontSize: "14px",
+    marginBottom: "20px",
+  },
+
+  lead: {
+    fontSize: "18px",
+    marginBottom: "10px",
+  },
+
+  toc: {
+    background: "#f1f5f9",
+    padding: "20px",
+    borderRadius: "10px",
+    margin: "30px 0",
+  },
+
+  tocTitle: {
+    marginBottom: "10px",
+  },
+
+  tocList: {
+    paddingLeft: "20px",
+    lineHeight: "1.8",
+  },
+
+  link: {
+    color: "#2563eb",
+    textDecoration: "underline",
+  },
+};
