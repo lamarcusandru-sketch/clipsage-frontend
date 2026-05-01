@@ -1,11 +1,9 @@
-import Image from 'next/image'
-import Link from 'next/link'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'How to Find Specific Moments in YouTube Videos | ClipSage',
   description:
-    'Learn how to find specific moments inside long YouTube videos, podcasts, interviews, and creator content faster with ClipSage.',
+    'Find exact moments inside YouTube videos, podcasts, and interviews instantly. Stop scrubbing through hours of content with ClipSage.',
   alternates: {
     canonical:
       'https://www.clipsage.org/blog/how-to-find-specific-moments-in-youtube-videos',
@@ -13,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'How to Find Specific Moments in YouTube Videos',
     description:
-      'Stop scrubbing through long videos. ClipSage helps creators, editors, and researchers find exact moments inside YouTube content.',
+      'Stop wasting time scrubbing through long videos. Find exact clips instantly with ClipSage.',
     url: 'https://www.clipsage.org/blog/how-to-find-specific-moments-in-youtube-videos',
     siteName: 'ClipSage',
     type: 'article',
@@ -22,167 +20,101 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'How to Find Specific Moments in YouTube Videos',
     description:
-      'Find exact moments inside YouTube videos, podcasts, and interviews faster with ClipSage.',
+      'Search inside YouTube videos and jump straight to the moment you need.',
   },
 }
 
 export default function BlogPost() {
   return (
-    <main className="bg-black text-white min-h-screen px-6 py-12">
-      <div className="max-w-3xl mx-auto">
+    <main className="max-w-3xl mx-auto px-6 py-12">
+      <h1 className="text-4xl font-bold mb-6">
+        How to Find Specific Moments in YouTube Videos
+      </h1>
 
-        {/* LOGO */}
-        <div className="mb-10 flex justify-center">
-          <Link href="/">
-            <Image
-              src="/logo.png"
-              alt="ClipSage Logo"
-              width={180}
-              height={60}
-              priority
-            />
-          </Link>
-        </div>
+      <p className="mb-4 text-lg">
+        Finding a specific moment in a YouTube video has always been frustrating.
+      </p>
 
-        {/* TITLE */}
-        <h1 className="text-4xl font-bold mb-6 text-center leading-tight">
-          How to Find Specific Moments in YouTube Videos (Without Wasting Hours)
-        </h1>
+      <p className="mb-4">
+        You scrub through the timeline, guess timestamps, skip forward, miss it,
+        rewind… and repeat. What should take seconds ends up taking minutes —
+        sometimes hours.
+      </p>
 
-        {/* HERO IMAGE */}
-        <div className="mb-8">
-          <Image
-            src="/blog/scrubbing-timeline.jpg"
-            alt="Scrubbing through a long YouTube timeline"
-            width={1200}
-            height={600}
-            className="rounded-xl"
-          />
-        </div>
+      <p className="mb-6">
+        If you're a creator, editor, or researcher, this problem isn’t just
+        annoying — it slows everything down.
+      </p>
 
-        {/* INTRO */}
-        <p className="text-lg text-gray-300 mb-6">
-          For decades, finding a specific moment inside a YouTube video has been
-          a slow, frustrating mess.
+      <h2 className="text-2xl font-semibold mt-10 mb-4">
+        Why It’s So Difficult
+      </h2>
+
+      <p className="mb-4">
+        YouTube wasn’t designed for precision searching inside videos. It’s built
+        for discovery, not extraction.
+      </p>
+
+      <ul className="list-disc list-inside mb-6">
+        <li>No reliable way to search transcripts</li>
+        <li>No clip-level navigation</li>
+        <li>No fast way to find exact quotes</li>
+      </ul>
+
+      <p className="mb-6">
+        So people have been forced to do things the hard way for years.
+      </p>
+
+      <h2 className="text-2xl font-semibold mt-10 mb-4">
+        A Better Way to Search Videos
+      </h2>
+
+      <p className="mb-4">
+        Instead of searching for videos, you can search inside them.
+      </p>
+
+      <p className="mb-4">
+        That’s the idea behind ClipSage.
+      </p>
+
+      <ul className="list-disc list-inside mb-6">
+        <li>Type what you're looking for</li>
+        <li>Get relevant clips</li>
+        <li>Jump directly to the exact moment</li>
+      </ul>
+
+      <h2 className="text-2xl font-semibold mt-10 mb-4">
+        Why This Matters
+      </h2>
+
+      <p className="mb-4">
+        This isn’t just about convenience — it’s about speed and leverage.
+      </p>
+
+      <ul className="list-disc list-inside mb-6">
+        <li>Find clips faster</li>
+        <li>Pull quotes instantly</li>
+        <li>Create content more efficiently</li>
+        <li>Save hours of time</li>
+      </ul>
+
+      <p className="mb-10">
+        What used to take hours can now take seconds.
+      </p>
+
+      <div className="border p-6 rounded-lg text-center">
+        <h3 className="text-xl font-semibold mb-2">
+          Try ClipSage
+        </h3>
+        <p className="mb-4">
+          Stop scrubbing. Start finding.
         </p>
-
-        <p className="text-lg text-gray-300 mb-6">
-          You drag the timeline. You guess timestamps. You skip forward. You miss
-          it. You go back. Repeat.
-        </p>
-
-        <p className="text-lg text-gray-300 mb-10">
-          If you’re a creator, editor, or researcher — you already know the pain.
-        </p>
-
-        {/* SECTION */}
-        <h2 className="text-2xl font-semibold mb-4">
-          The Old Way (And Why It’s Broken)
-        </h2>
-
-        <div className="mb-6">
-          <Image
-            src="/blog/youtube-timeline.jpg"
-            alt="YouTube timeline scrubbing frustration"
-            width={1200}
-            height={600}
-            className="rounded-xl"
-          />
-        </div>
-
-        <p className="text-gray-300 mb-6">
-          YouTube was never built for precision search inside videos. It’s built
-          for discovery — not extraction.
-        </p>
-
-        <ul className="list-disc list-inside text-gray-300 mb-10 space-y-2">
-          <li>No true transcript search (reliable or fast)</li>
-          <li>No clip-level navigation</li>
-          <li>No way to find exact quotes quickly</li>
-        </ul>
-
-        <p className="text-gray-300 mb-10">
-          So creators have been stuck doing things the hard way… for years.
-        </p>
-
-        {/* SECTION */}
-        <h2 className="text-2xl font-semibold mb-4">
-          The New Way: Search Inside Videos
-        </h2>
-
-        <div className="mb-6">
-          <Image
-            src="/blog/search-interface.jpg"
-            alt="Searching inside video content"
-            width={1200}
-            height={600}
-            className="rounded-xl"
-          />
-        </div>
-
-        <p className="text-gray-300 mb-6">
-          This is where ClipSage comes in.
-        </p>
-
-        <p className="text-gray-300 mb-6">
-          Instead of searching videos… you search moments inside them.
-        </p>
-
-        <ul className="list-disc list-inside text-gray-300 mb-10 space-y-2">
-          <li>Type what you're looking for</li>
-          <li>Get exact clips</li>
-          <li>Jump directly to the moment</li>
-        </ul>
-
-        {/* SECTION */}
-        <h2 className="text-2xl font-semibold mb-4">
-          Why This Changes Everything
-        </h2>
-
-        <div className="mb-6">
-          <Image
-            src="/blog/content-creation.jpg"
-            alt="Content creator editing clips"
-            width={1200}
-            height={600}
-            className="rounded-xl"
-          />
-        </div>
-
-        <p className="text-gray-300 mb-6">
-          This isn’t just convenience. It’s leverage.
-        </p>
-
-        <ul className="list-disc list-inside text-gray-300 mb-10 space-y-2">
-          <li>Find viral clips instantly</li>
-          <li>Pull quotes without rewatching hours</li>
-          <li>Create short-form content faster</li>
-          <li>Research smarter</li>
-        </ul>
-
-        <p className="text-gray-300 mb-10">
-          What used to take hours… now takes seconds.
-        </p>
-
-        {/* CTA */}
-        <div className="bg-yellow-400 text-black p-6 rounded-xl text-center">
-          <h3 className="text-xl font-bold mb-2">
-            Try ClipSage Now
-          </h3>
-          <p className="mb-4">
-            Stop scrubbing. Start finding.
-          </p>
-          <Link
-            href="/"
-            className="bg-black text-white px-6 py-3 rounded-lg font-semibold inline-block"
-          >
-            Search Clips Now
-          </Link>
-        </div>
-
-        {/* FOOTER SPACING */}
-        <div className="h-16" />
-
+        <a
+          href="/"
+          className="inline-block px-6 py-3 bg-black text-white rounded-lg"
+        >
+          Search Clips Now
+        </a>
       </div>
     </main>
   )
