@@ -1,17 +1,21 @@
 import type { MetadataRoute } from 'next'
 
-const siteUrl = 'https://www.clipsage.org'
-
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: siteUrl,
+      url: 'https://www.clipsage.org',
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 1,
     },
     {
-      url: `${siteUrl}/blog/how-to-find-specific-moments-in-youtube-videos`,
+      url: 'https://www.clipsage.org/blog/how-to-find-specific-moments-in-youtube-videos',
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
+    {
+      url: 'https://www.clipsage.org/blog/how-to-search-inside-a-youtube-video',
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.8,
