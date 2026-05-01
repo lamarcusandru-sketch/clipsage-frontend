@@ -28,5 +28,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: "https://www.clipsage.org/blog/how-to-find-a-specific-quote-in-a-youtube-video",
       lastModified: new Date(),
     },
+    {
+      url: "https://www.clipsage.org/blog/best-way-to-find-quotes-in-long-youtube-videos",
+      lastModified: new Date(),
+    },
   ];
 }
