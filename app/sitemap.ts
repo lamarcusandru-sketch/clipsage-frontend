@@ -1,30 +1,32 @@
-import type { MetadataRoute } from 'next'
+import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: 'https://www.clipsage.org',
+      url: "https://www.clipsage.org",
       lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 1,
+    },
+
+    // 🔹 Blog Posts
+    {
+      url: "https://www.clipsage.org/blog/how-to-search-inside-youtube-videos",
+      lastModified: new Date(),
     },
     {
-      url: 'https://www.clipsage.org/blog/how-to-find-specific-moments-in-youtube-videos',
+      url: "https://www.clipsage.org/blog/how-to-find-clips-from-podcasts",
       lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
     },
     {
-      url: 'https://www.clipsage.org/blog/how-to-search-inside-a-youtube-video',
+      url: "https://www.clipsage.org/blog/content-repurposing-for-creators",
       lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
     },
     {
-      url: 'https://www.clipsage.org/blog/how-to-find-clips-from-podcasts-fast',
+      url: "https://www.clipsage.org/blog/best-way-to-find-youtube-clips",
       lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
     },
-  ]
+    {
+      url: "https://www.clipsage.org/blog/how-to-find-a-specific-quote-in-a-youtube-video",
+      lastModified: new Date(),
+    },
+  ];
 }
