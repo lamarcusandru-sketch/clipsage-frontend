@@ -50,6 +50,12 @@ export default async function sitemap() {
       priority: 0.9,
     },
     {
+      url: `${baseUrl}/blog/best-way-to-search-youtube-videos-in-2026`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
       url: `${baseUrl}/blog/how-to-find-a-specific-quote-in-a-youtube-video`,
       lastModified: new Date(),
       changeFrequency: "weekly",
