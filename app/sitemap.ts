@@ -14,6 +14,8 @@ export default async function sitemap() {
       changeFrequency: "daily",
       priority: 0.9,
     },
+
+    // Blog Posts (ONLY REAL ONES)
     {
       url: `${baseUrl}/blog/best-way-to-find-quotes-in-long-youtube-videos`,
       lastModified: new Date(),
@@ -49,6 +51,14 @@ export default async function sitemap() {
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.85,
+    },
+
+    // NEW POST
+    {
+      url: `${baseUrl}/blog/how-to-search-a-youtube-transcript-for-keywords`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
     },
   ];
 }
