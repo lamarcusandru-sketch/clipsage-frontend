@@ -2,6 +2,7 @@ export default async function sitemap() {
   const baseUrl = "https://www.clipsage.org";
 
   return [
+    // Core Pages
     {
       url: `${baseUrl}/`,
       lastModified: new Date(),
@@ -9,13 +10,33 @@ export default async function sitemap() {
       priority: 1,
     },
     {
+      url: `${baseUrl}/landing`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
+    {
+      url: `${baseUrl}/pricing`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/about`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+
+    // Blog Index
+    {
       url: `${baseUrl}/blog`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
     },
 
-    // Blog Posts (ALL CURRENT REAL POSTS)
+    // Blog Posts
     {
       url: `${baseUrl}/blog/best-way-to-find-quotes-in-long-youtube-videos`,
       lastModified: new Date(),
