@@ -1,36 +1,51 @@
-import type { MetadataRoute } from "next";
+export default async function sitemap() {
+  const baseUrl = "https://www.clipsage.org";
 
-export default function sitemap(): MetadataRoute.Sitemap {
   return [
+    // Core Pages
     {
-      url: "https://www.clipsage.org",
+      url: `${baseUrl}`,
       lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 1,
+    },
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.9,
     },
 
-    // 🔹 Blog Posts
+    // Blog Posts
     {
-      url: "https://www.clipsage.org/blog/how-to-search-inside-youtube-videos",
+      url: `${baseUrl}/blog/how-to-find-a-specific-quote-in-a-youtube-video`,
       lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
     },
     {
-      url: "https://www.clipsage.org/blog/how-to-find-clips-from-podcasts",
+      url: `${baseUrl}/blog/how-to-search-inside-youtube-videos`,
       lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
     },
     {
-      url: "https://www.clipsage.org/blog/content-repurposing-for-creators",
+      url: `${baseUrl}/blog/how-to-find-clips-from-podcasts`,
       lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
     },
     {
-      url: "https://www.clipsage.org/blog/best-way-to-find-youtube-clips",
+      url: `${baseUrl}/blog/content-repurposing-for-creators`,
       lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.8,
     },
     {
-      url: "https://www.clipsage.org/blog/how-to-find-a-specific-quote-in-a-youtube-video",
+      url: `${baseUrl}/blog/best-way-to-search-podcast-transcripts-in-2026`,
       lastModified: new Date(),
-    },
-    {
-      url: "https://www.clipsage.org/blog/best-way-to-find-quotes-in-long-youtube-videos",
-      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.85,
     },
   ];
 }
