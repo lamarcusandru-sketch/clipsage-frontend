@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      {
+        source: "/blog/how-to-find-clips-from-podcasts",
+        destination: "/blog/how-to-find-clips-from-podcasts-fast",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
