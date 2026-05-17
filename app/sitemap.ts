@@ -2,7 +2,6 @@ export default async function sitemap() {
   const baseUrl = "https://www.clipsage.org";
 
   return [
-    // Core Pages
     {
       url: `${baseUrl}/`,
       lastModified: new Date(),
@@ -27,16 +26,12 @@ export default async function sitemap() {
       changeFrequency: "monthly",
       priority: 0.8,
     },
-
-    // Blog Index
     {
       url: `${baseUrl}/blog`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
     },
-
-    // Blog Posts
     {
       url: `${baseUrl}/blog/best-way-to-find-quotes-in-long-youtube-videos`,
       lastModified: new Date(),
@@ -87,6 +82,12 @@ export default async function sitemap() {
     },
     {
       url: `${baseUrl}/blog/how-to-find-a-timestamp-in-a-youtube-video`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/blog/youtube-clip-finder-tool`,
       lastModified: new Date(),
       changeFrequency: "weekly",
       priority: 0.9,
