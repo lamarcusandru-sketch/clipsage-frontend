@@ -92,5 +92,11 @@ export default async function sitemap() {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    {
+  url: `${baseUrl}/blog/tool-to-search-podcast-transcripts`,
+  lastModified: new Date(),
+  changeFrequency: "weekly",
+  priority: 0.9,
+    },
   ];
 }
